@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>绿色软件与扩展聚合搜索</title>
+    <style>
+        :root {
+            --blue: #1a0dab;
+            --green: #006621;
+            --bg: #f8f9fa;
+            --card-bg: #fff;
+            --text-primary: #202124;
+            --text-secondary: #5f6368;
+            --border-color: #dfe1e5;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --hover-shadow-color: rgba(0, 0, 0, 0.15);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --blue: #8ab4f8;
+                --green: #9aa0a6;
+                --bg: #17181a;
+                --card-bg: #202124;
+                --text-primary: #e8eaed;
+                --text-secondary: #bdc1c6;
+                --border-color: #3c4043;
+                --shadow-color: rgba(0, 0, 0, 0.25);
+                --hover-shadow-color: rgba(0, 0, 0, 0.4);
+            }
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            color: var(--text-primary);
+            transition: background-color 0.3s ease;
+            overflow-y: scroll;
+        }
+        /* 动态背景 "壁纸" */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-size: 400% 400%;
+            animation: gradientAnimation 20s ease infinite;
+            transition: opacity 0.5s ease, background 0.5s ease;
+        }
+        /* 默认主题 */
+        body[data-theme="aurora"]::before {
+            background-image: linear-gradient(315deg, #8ab4f8, #34a853, #fbbc05, #ea4335);
+            opacity: 0.2;
+        }
+        @media (prefers-color-scheme: dark) { body[data-theme="aurora"]::before { opacity: 0.25; } }
+        
+        /* 日落主题 */
+        body[data-theme="sunset"]::before {
+            background-image: linear-gradient(315deg, #f83600, #f9d423, #ff512f, #dd2476);
+            opacity: 0.25;
+        }
+        @media (prefers-color-scheme: dark) { body[data-theme="sunset"]::before { opacity: 0.3; } }
+
+        /* 海洋主题 */
+        body[data-theme="ocean"]::before {
+            background-image: linear-gradient(315deg, #21d4fd, #b721ff, #08aeea, #2af598);
+            opacity: 0.2;
+        }
+        @media (prefers-color-scheme: dark) { body[data-theme="ocean"]::before { opacity: 0.25; } }
+
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 14px 10px;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        @media (prefers-color-scheme: dark) {
+            header {
+                background: rgba(32,33,36,0.7);
+            }
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        .header-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0 16px;
+            height: 48px;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px var(--shadow-color);
+        }
+        .header-btn-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 6px;
+            fill: currentColor;
+        }
+        .home-btn {
+            margin-right: 10px;
+        }
+        .ai-btn-container, .theme-btn-container {
+             position: relative;
+             margin-left: 10px;
+        }
+        .header-btn:hover {
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 6px var(--shadow-color);
+            transition: all 0.3s ease;
+        }
+        .search-container:hover, .search-container:focus-within {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 4px rgba(138, 180, 248, 0.2), 0 2px 8px var(--hover-shadow-color);
+        }
+        .category-dropdown {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .dropdown-toggle {
+            display: flex;
+            align-items: center;
+            background: none;
+            border: none;
+            padding: 0 8px 0 16px;
+            height: 46px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .dropdown-toggle svg {
+            width: 16px;
+            height: 16px;
+            margin-left: 4px;
+            fill: currentColor;
+            opacity: 0.7;
+            transition: transform 0.2s ease;
+        }
+        .dropdown-toggle.open svg {
+            transform: rotate(180deg);
+        }
+        .dropdown-menu {
+            position: absolute;
+            top: 120%;
+            left: 0;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px var(--hover-shadow-color);
+            padding: 8px;
+            min-width: 120px;
+            z-index: 20;
+        }
+        .ai-dropdown-menu, .theme-dropdown-menu {
+            right: 0;
+            left: auto;
+        }
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: background-color 0.2s ease;
+            white-space: nowrap;
+        }
+        .dropdown-item-favicon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+        .dropdown-item:hover {
+            background-color: var(--border-color);
+        }
+        .search-input {
+            width: 100%;
+            height: 46px;
+            border: none;
+            padding: 0 10px;
+            font-size: 16px;
+            outline: none;
+            background: transparent;
+            color: var(--text-primary);
+        }
+        .search-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 22px;
+            padding: 0 16px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+            color: var(--text-secondary);
+        }
+        .search-btn:hover {
+            opacity: 1;
+        }
+        main {
+            max-width: 652px; /* 恢复为单栏布局 */
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+            transition: max-width 0.3s ease;
+        }
+        main.fullscreen {
+            max-width: 100%;
+            padding: 0;
+        }
+        .result {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            padding: 16px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 4px var(--shadow-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .result:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 12px var(--hover-shadow-color);
+        }
+        .result-favicon {
+            width: 24px;
+            height: 24px;
+            margin-right: 16px;
+            flex-shrink: 0;
+            margin-top: 4px;
+            border-radius: 4px;
+        }
+        .result-content {
+            flex-grow: 1;
+        }
+        .result h3 {
+            font-size: 20px;
+            margin: 0 0 4px;
+            font-weight: 500;
+        }
+        .result h3 a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+        .result h3 a:hover {
+            text-decoration: underline;
+        }
+        .result cite {
+            color: var(--green);
+            font-size: 14px;
+            font-style: normal;
+        }
+        .result p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-top: 8px;
+        }
+        #initial-view {
+            text-align: center;
+            margin-top: 20vh;
+            color: var(--text-secondary);
+        }
+        #iframe-view {
+            height: calc(100vh - 78px);
+            display: flex;
+            flex-direction: column;
+        }
+        .iframe-header {
+            padding: 8px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .iframe-header a {
+            color: var(--blue);
+            text-decoration: none;
+            font-weight: bold;
+        }
+        #content-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body data-theme="aurora">
+    <header>
+        <div class="header-content">
+            <button id="home-btn" class="header-btn home-btn">主页</button>
+            <div class="search-container">
+                <div class="category-dropdown">
+                    <button type="button" id="dropdown-toggle" class="dropdown-toggle">
+                        <span id="selected-category-text">软件</span>
+                        <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"></path></svg>
+                    </button>
+                    <div id="dropdown-menu" class="dropdown-menu hidden">
+                        <a href="#" class="dropdown-item" data-category="software">软件</a>
+                        <a href="#" class="dropdown-item" data-category="extension">扩展</a>
+                        <a href="#" class="dropdown-item" data-category="movie">影视</a>
+                        <a href="#" class="dropdown-item" data-category="free">自由搜索</a>
+                    </div>
+                </div>
+                <form id="search-form" style="display: contents;">
+                    <input id="search-input" class="search-input" placeholder="聚合搜索软件…" autocomplete="off">
+                    <button class="search-btn" type="submit">🔍</button>
+                </form>
+            </div>
+             <div class="ai-btn-container">
+                <button id="ai-btn" class="header-btn ai-btn">
+                    <svg class="header-btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2.5l1.06 2.16L15.5 5.5l-2.16 1.06L12 8.5l-1.06-2.16L8.5 5.5l2.16-1.06z M5 10l1.5 3L8 14.5l-1.5 1.5-1.5 3-1.5-3L2 14.5l1.5-1.5z M19 10l1.5 3L22 14.5l-1.5 1.5-1.5 3-1.5-3L16 14.5l1.5-1.5z"></path>
+                    </svg>
+                    <span>AI</span>
+                </button>
+                <div id="ai-dropdown-menu" class="dropdown-menu ai-dropdown-menu hidden">
+                    <a href="#" data-url="https://ai.dangbei.com/chat" class="dropdown-item ai-link">
+                        <img src="https://ai.dangbei.com/favicon.ico" class="dropdown-item-favicon" alt="当贝AI" onerror="this.style.display='none'">
+                        当贝AI
+                    </a>
+                    <a href="#" data-url="https://grok.dairoot.cn/" class="dropdown-item ai-link">
+                        <img src="https://grok.dairoot.cn/favicon.ico" class="dropdown-item-favicon" alt="Grok" onerror="this.style.display='none'">
+                        Grok
+                    </a>
+                    <a href="#" data-url="https://gege.chat/list/#/home" class="dropdown-item ai-link">
+                        <img src="https://gege.chat/favicon.ico" class="dropdown-item-favicon" alt="GeGe Chat" onerror="this.style.display='none'">
+                        GeGe Chat
+                    </a>
+                </div>
+            </div>
+            <div class="theme-btn-container">
+                 <button id="theme-btn" class="header-btn theme-btn">
+                    <svg class="header-btn-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"></path></svg>
+                </button>
+                <div id="theme-dropdown-menu" class="dropdown-menu theme-dropdown-menu hidden">
+                    <a href="#" class="dropdown-item theme-choice" data-theme="aurora">极光</a>
+                    <a href="#" class="dropdown-item theme-choice" data-theme="sunset">日落</a>
+                    <a href="#" class="dropdown-item theme-choice" data-theme="ocean">海洋</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content">
+        <div id="initial-view">
+            <p>选择模式，输入关键词，开启探索之旅</p>
+        </div>
+        <div id="results-container" class="hidden"></div>
+        <div id="iframe-view" class="hidden"></div>
+    </main>
+
+    <script>
+        // --- 站点配置 ---
+        const SITES = [
+            { name: '423下载站', searchUrl: 'https://www.423down.com/search/{query}', favicon: 'https://www.423down.com/favicon.ico', category: 'software' },
+            { name: '异次元软件世界', searchUrl: 'https://www.osssr.com/?s={query}', favicon: 'https://www.osssr.com/favicon.ico', category: 'software' },
+            { name: 'Crx搜搜', searchUrl: 'https://www.crxsoso.com/search?q={query}', favicon: 'https://www.crxsoso.com/favicon.ico', category: 'extension' },
+            { name: '精品MAC应用', searchUrl: 'https://www.mefcl.com/?s={query}', favicon: 'https://www.mefcl.com/wp-content/uploads/2021/06/cropped-logo-1-32x32.png', category: 'software' },
+            { name: '国度下载', searchUrl: 'https://search.gndown.com/?s={query}', favicon: 'https://search.gndown.com/favicon.ico', category: 'software' },
+            { name: '系统总裁', searchUrl: 'https://www.puresys.net/?s={query}', favicon: 'https://www.puresys.net/favicon.ico', category: 'software' }
+        ];
+
+        // --- 页面逻辑 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const homeBtn = document.getElementById('home-btn');
+            const searchForm = document.getElementById('search-form');
+            const searchInput = document.getElementById('search-input');
+            const mainContent = document.getElementById('main-content');
+            const initialView = document.getElementById('initial-view');
+            const resultsContainer = document.getElementById('results-container');
+            const iframeView = document.getElementById('iframe-view');
+            
+            const dropdownToggle = document.getElementById('dropdown-toggle');
+            const dropdownMenu = document.getElementById('dropdown-menu');
+            const selectedCategoryText = document.getElementById('selected-category-text');
+            
+            const aiBtn = document.getElementById('ai-btn');
+            const aiDropdownMenu = document.getElementById('ai-dropdown-menu');
+
+            const themeBtn = document.getElementById('theme-btn');
+            const themeDropdownMenu = document.getElementById('theme-dropdown-menu');
+
+            let currentCategory = 'software';
+
+            const showView = (viewToShow) => {
+                [initialView, resultsContainer, iframeView].forEach(view => {
+                    view.classList.add('hidden');
+                });
+                viewToShow.classList.remove('hidden');
+                
+                if (viewToShow === iframeView) {
+                    mainContent.classList.add('fullscreen');
+                } else {
+                    mainContent.classList.remove('fullscreen');
+                }
+            };
+
+            // 修复后的主页按钮逻辑
+            homeBtn.addEventListener('click', () => {
+                mainContent.classList.remove('fullscreen');
+                resultsContainer.innerHTML = '';
+                iframeView.innerHTML = '';
+                showView(initialView);
+                searchInput.value = '';
+            });
+            
+            const setupDropdown = (toggle, menu) => {
+                 toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isHidden = menu.classList.contains('hidden');
+                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
+                    document.querySelectorAll('.dropdown-toggle, .ai-btn, .theme-btn').forEach(t => t.classList.remove('open'));
+                    if(isHidden){
+                        menu.classList.remove('hidden');
+                        if(toggle.classList.contains('dropdown-toggle')) toggle.classList.add('open');
+                    }
+                });
+            };
+
+            setupDropdown(dropdownToggle, dropdownMenu);
+            setupDropdown(aiBtn, aiDropdownMenu);
+            setupDropdown(themeBtn, themeDropdownMenu);
+
+            document.addEventListener('click', () => {
+                document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
+                document.querySelectorAll('.dropdown-toggle').forEach(t => t.classList.remove('open'));
+            });
+
+            dropdownMenu.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.target.closest('.dropdown-item')) {
+                    const item = e.target.closest('.dropdown-item');
+                    currentCategory = item.dataset.category;
+                    selectedCategoryText.textContent = item.textContent.trim();
+                    
+                    const placeholders = {
+                        software: '聚合搜索软件…',
+                        extension: '搜索浏览器扩展…',
+                        movie: '搜索影视资源…',
+                        free: '全网自由搜索…'
+                    };
+                    searchInput.placeholder = placeholders[currentCategory] || '搜索…';
+                    dropdownMenu.classList.add('hidden');
+                    dropdownToggle.classList.remove('open');
+                }
+            });
+            
+            aiDropdownMenu.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const link = e.target.closest('.ai-link');
+                if (link) {
+                    const url = link.dataset.url;
+                    const name = link.textContent.trim();
+                    iframeView.innerHTML = `
+                        <div class="iframe-header">
+                            正在加载 ${name}。如果无法显示，请 <a href="${url}" target="_blank">在新标签页中打开</a>。
+                        </div>
+                        <iframe id="content-iframe" src="${url}" sandbox="allow-forms allow-scripts allow-same-origin"></iframe>
+                    `;
+                    showView(iframeView);
+                    aiDropdownMenu.classList.add('hidden');
+                }
+            });
+            
+            themeDropdownMenu.addEventListener('click', (e) => {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 const choice = e.target.closest('.theme-choice');
+                 if(choice) {
+                     document.body.dataset.theme = choice.dataset.theme;
+                     themeDropdownMenu.classList.add('hidden');
+                 }
+            });
+
+            const performSearch = (query) => {
+                if (!query) return;
+
+                const directSearchUrls = {
+                    movie: `https://tv.nloln.cn/s=${encodeURIComponent(query)}`,
+                    free: `https://so.ddns-ip.net/search?q=${encodeURIComponent(query)}`
+                };
+
+                if (directSearchUrls[currentCategory]) {
+                    window.open(directSearchUrls[currentCategory], '_blank');
+                } else {
+                    resultsContainer.innerHTML = '';
+                    const sitesToSearch = SITES.filter(site => site.category === currentCategory);
+
+                    sitesToSearch.forEach(site => {
+                        const finalUrl = site.searchUrl.replace('{query}', encodeURIComponent(query));
+                        const titleText = `在 ${site.name} 中搜索 "${query}"`;
+                        const snippetText = `点击查看在 “${site.name}” 网站上关于 “${query}” 的全部搜索结果。此链接将会在新标签页中打开。`;
+                        
+                        const resultDiv = document.createElement('div');
+                        resultDiv.className = 'result';
+                        resultDiv.innerHTML = `
+                            <img src="${site.favicon}" alt="${site.name} logo" class="result-favicon" onerror="this.style.display='none'">
+                            <div class="result-content">
+                                <h3><a href="${finalUrl}" target="_blank" rel="noopener noreferrer">${titleText}</a></h3>
+                                <cite>${site.name}</cite>
+                                <p>${snippetText}</p>
+                            </div>
+                        `;
+                        resultsContainer.appendChild(resultDiv);
+                    });
+                    showView(resultsContainer);
+                }
+            };
+
+            searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const query = searchInput.value.trim();
+                performSearch(query);
+            });
+        });
+    </script>
+</body>
+</html>
