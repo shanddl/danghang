@@ -39,9 +39,9 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
             color: var(--text-primary);
             transition: background-color 0.3s ease;
-            overflow-y: scroll;
+            overflow: hidden;
+            height: 100vh;
         }
-        /* 动态背景 "壁纸" */
         body::before {
             content: '';
             position: fixed;
@@ -54,21 +54,18 @@
             animation: gradientAnimation 20s ease infinite;
             transition: opacity 0.5s ease, background 0.5s ease;
         }
-        /* 默认主题 */
         body[data-theme="aurora"]::before {
             background-image: linear-gradient(315deg, #8ab4f8, #34a853, #fbbc05, #ea4335);
             opacity: 0.2;
         }
         @media (prefers-color-scheme: dark) { body[data-theme="aurora"]::before { opacity: 0.25; } }
         
-        /* 日落主题 */
         body[data-theme="sunset"]::before {
             background-image: linear-gradient(315deg, #f83600, #f9d423, #ff512f, #dd2476);
             opacity: 0.25;
         }
         @media (prefers-color-scheme: dark) { body[data-theme="sunset"]::before { opacity: 0.3; } }
 
-        /* 海洋主题 */
         body[data-theme="ocean"]::before {
             background-image: linear-gradient(315deg, #21d4fd, #b721ff, #08aeea, #2af598);
             opacity: 0.2;
@@ -80,6 +77,16 @@
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
+        @keyframes fadeInScaleUp {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
         header {
             position: sticky;
             top: 0;
@@ -88,7 +95,7 @@
             -webkit-backdrop-filter: blur(12px);
             padding: 14px 10px;
             border-bottom: 1px solid var(--border-color);
-            z-index: 10;
+            z-index: 50;
             transition: background-color 0.3s ease, border-color 0.3s ease;
         }
         @media (prefers-color-scheme: dark) {
@@ -122,7 +129,7 @@
         .header-btn-icon {
             width: 20px;
             height: 20px;
-            margin-right: 6px;
+            margin-right: 8px;
             fill: currentColor;
         }
         .home-btn {
@@ -166,7 +173,11 @@
             color: var(--text-primary);
             font-size: 14px;
         }
-        .dropdown-toggle svg {
+        .dropdown-toggle .header-btn-icon {
+            width: 18px;
+            height: 18px;
+        }
+        .dropdown-toggle svg:not(.header-btn-icon) {
             width: 16px;
             height: 16px;
             margin-left: 4px;
@@ -174,7 +185,7 @@
             opacity: 0.7;
             transition: transform 0.2s ease;
         }
-        .dropdown-toggle.open svg {
+        .dropdown-toggle.open svg:not(.header-btn-icon) {
             transform: rotate(180deg);
         }
         .dropdown-menu {
@@ -182,24 +193,27 @@
             top: 120%;
             left: 0;
             background: var(--card-bg);
-            border-radius: 8px;
+            border-radius: 18px; /* iOS Style */
             border: 1px solid var(--border-color);
             box-shadow: 0 4px 12px var(--hover-shadow-color);
-            padding: 8px;
-            min-width: 120px;
-            z-index: 20;
+            padding: 6px;
+            min-width: 140px;
+            z-index: 50;
+            transform-origin: top left;
+            animation: fadeInScaleUp 0.2s cubic-bezier(0.25, 1, 0.5, 1);
         }
         .ai-dropdown-menu, .theme-dropdown-menu {
             right: 0;
             left: auto;
+            transform-origin: top right;
         }
         .dropdown-item {
             display: flex;
             align-items: center;
-            padding: 8px 12px;
+            padding: 10px 12px;
             color: var(--text-primary);
             text-decoration: none;
-            border-radius: 6px;
+            border-radius: 12px; /* iOS Style */
             font-size: 14px;
             transition: background-color 0.2s ease;
             white-space: nowrap;
@@ -237,14 +251,12 @@
             opacity: 1;
         }
         main {
-            max-width: 652px; /* 恢复为单栏布局 */
+            max-width: 652px;
             margin: 0 auto;
             padding: 20px 16px 40px;
             transition: max-width 0.3s ease;
-        }
-        main.fullscreen {
-            max-width: 100%;
-            padding: 0;
+            overflow-y: auto;
+            height: calc(100vh - 78px);
         }
         .result {
             display: flex;
@@ -300,25 +312,37 @@
             margin-top: 20vh;
             color: var(--text-secondary);
         }
-        #iframe-view {
-            height: calc(100vh - 78px);
+        #modal-view {
+            position: fixed;
+            top: 78px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 40;
+            background-color: var(--bg);
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             display: flex;
             flex-direction: column;
         }
-        .iframe-header {
+        #modal-view.active {
+            transform: translateY(0);
+        }
+        .modal-header {
             padding: 8px;
             background: var(--card-bg);
             border-bottom: 1px solid var(--border-color);
             text-align: center;
             font-size: 14px;
             color: var(--text-secondary);
+            flex-shrink: 0;
         }
-        .iframe-header a {
+        .modal-header a {
             color: var(--blue);
             text-decoration: none;
             font-weight: bold;
         }
-        #content-iframe {
+        #modal-iframe {
             width: 100%;
             height: 100%;
             border: none;
@@ -331,18 +355,35 @@
 <body data-theme="aurora">
     <header>
         <div class="header-content">
-            <button id="home-btn" class="header-btn home-btn">主页</button>
+            <button id="home-btn" class="header-btn home-btn">
+                <svg class="header-btn-icon" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg>
+                <span>主页</span>
+            </button>
             <div class="search-container">
                 <div class="category-dropdown">
                     <button type="button" id="dropdown-toggle" class="dropdown-toggle">
-                        <span id="selected-category-text">软件</span>
+                        <span id="selected-category-content">
+                            <!-- Content will be set by JS -->
+                        </span>
                         <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"></path></svg>
                     </button>
                     <div id="dropdown-menu" class="dropdown-menu hidden">
-                        <a href="#" class="dropdown-item" data-category="software">软件</a>
-                        <a href="#" class="dropdown-item" data-category="extension">扩展</a>
-                        <a href="#" class="dropdown-item" data-category="movie">影视</a>
-                        <a href="#" class="dropdown-item" data-category="free">自由搜索</a>
+                        <a href="#" class="dropdown-item" data-category="software">
+                            <svg class="header-btn-icon" viewBox="0 0 24 24"><path d="M20 6h-8l-2-2H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V6h5.17l2 2H20v10z"></path></svg>
+                            <span>软件</span>
+                        </a>
+                        <a href="#" class="dropdown-item" data-category="extension">
+                            <svg class="header-btn-icon" viewBox="0 0 24 24"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-2 .9-2 2v3.8h1.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7s2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.49 0 2.7-1.21 2.7-2.7s-1.21-2.7-2.7-2.7z"></path></svg>
+                            <span>扩展</span>
+                        </a>
+                        <a href="#" class="dropdown-item" data-category="movie">
+                             <svg class="header-btn-icon" viewBox="0 0 24 24"><path d="M18 3v2h-2V3H8v2H6V3H4v18h2v-2h2v2h8v-2h2v2h2V3h-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"></path></svg>
+                            <span>影视</span>
+                        </a>
+                        <a href="#" class="dropdown-item" data-category="free">
+                             <svg class="header-btn-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93s3.05-7.44 7-7.93v15.86zm2-15.86c1.03.13 2 .45 2.87.93L15 6.34V4.27c-1-.24-2.06-.37-3.13-.37s-2.13.13-3.13.37v2.07l-1.87-1.36C8 4.45 9 4.13 10 4.07V2.07z"></path></svg>
+                            <span>自由搜索</span>
+                        </a>
                     </div>
                 </div>
                 <form id="search-form" style="display: contents;">
@@ -358,15 +399,15 @@
                     <span>AI</span>
                 </button>
                 <div id="ai-dropdown-menu" class="dropdown-menu ai-dropdown-menu hidden">
-                    <a href="#" data-url="https://ai.dangbei.com/chat" class="dropdown-item ai-link">
+                    <a href="#" data-url="https://ai.dangbei.com/chat" data-action="modal" class="dropdown-item ai-link">
                         <img src="https://ai.dangbei.com/favicon.ico" class="dropdown-item-favicon" alt="当贝AI" onerror="this.style.display='none'">
                         当贝AI
                     </a>
-                    <a href="#" data-url="https://grok.dairoot.cn/" class="dropdown-item ai-link">
+                    <a href="#" data-url="https://grok.dairoot.cn/" data-action="modal" class="dropdown-item ai-link">
                         <img src="https://grok.dairoot.cn/favicon.ico" class="dropdown-item-favicon" alt="Grok" onerror="this.style.display='none'">
                         Grok
                     </a>
-                    <a href="#" data-url="https://gege.chat/list/#/home" class="dropdown-item ai-link">
+                    <a href="#" data-url="https://gege.chat/list/#/home" data-action="modal" class="dropdown-item ai-link">
                         <img src="https://gege.chat/favicon.ico" class="dropdown-item-favicon" alt="GeGe Chat" onerror="this.style.display='none'">
                         GeGe Chat
                     </a>
@@ -390,11 +431,14 @@
             <p>选择模式，输入关键词，开启探索之旅</p>
         </div>
         <div id="results-container" class="hidden"></div>
-        <div id="iframe-view" class="hidden"></div>
     </main>
+    
+    <div id="modal-view">
+        <div id="modal-header" class="modal-header"></div>
+        <iframe id="modal-iframe"></iframe>
+    </div>
 
     <script>
-        // --- 站点配置 ---
         const SITES = [
             { name: '423下载站', searchUrl: 'https://www.423down.com/search/{query}', favicon: 'https://www.423down.com/favicon.ico', category: 'software' },
             { name: '异次元软件世界', searchUrl: 'https://www.osssr.com/?s={query}', favicon: 'https://www.osssr.com/favicon.ico', category: 'software' },
@@ -404,7 +448,6 @@
             { name: '系统总裁', searchUrl: 'https://www.puresys.net/?s={query}', favicon: 'https://www.puresys.net/favicon.ico', category: 'software' }
         ];
 
-        // --- 页面逻辑 ---
         document.addEventListener('DOMContentLoaded', () => {
             const homeBtn = document.getElementById('home-btn');
             const searchForm = document.getElementById('search-form');
@@ -412,11 +455,13 @@
             const mainContent = document.getElementById('main-content');
             const initialView = document.getElementById('initial-view');
             const resultsContainer = document.getElementById('results-container');
-            const iframeView = document.getElementById('iframe-view');
+            const modalView = document.getElementById('modal-view');
+            const modalHeader = document.getElementById('modal-header');
+            const modalIframe = document.getElementById('modal-iframe');
             
             const dropdownToggle = document.getElementById('dropdown-toggle');
             const dropdownMenu = document.getElementById('dropdown-menu');
-            const selectedCategoryText = document.getElementById('selected-category-text');
+            const selectedCategoryContent = document.getElementById('selected-category-content');
             
             const aiBtn = document.getElementById('ai-btn');
             const aiDropdownMenu = document.getElementById('ai-dropdown-menu');
@@ -427,23 +472,14 @@
             let currentCategory = 'software';
 
             const showView = (viewToShow) => {
-                [initialView, resultsContainer, iframeView].forEach(view => {
-                    view.classList.add('hidden');
-                });
-                viewToShow.classList.remove('hidden');
-                
-                if (viewToShow === iframeView) {
-                    mainContent.classList.add('fullscreen');
-                } else {
-                    mainContent.classList.remove('fullscreen');
+                [initialView, resultsContainer].forEach(view => view.classList.add('hidden'));
+                modalView.classList.remove('active');
+                if (viewToShow) {
+                    viewToShow.classList.remove('hidden');
                 }
             };
-
-            // 修复后的主页按钮逻辑
+            
             homeBtn.addEventListener('click', () => {
-                mainContent.classList.remove('fullscreen');
-                resultsContainer.innerHTML = '';
-                iframeView.innerHTML = '';
                 showView(initialView);
                 searchInput.value = '';
             });
@@ -469,24 +505,30 @@
                 document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.add('hidden'));
                 document.querySelectorAll('.dropdown-toggle').forEach(t => t.classList.remove('open'));
             });
+            
+            const updateSelectedCategory = (categoryItem) => {
+                currentCategory = categoryItem.dataset.category;
+                selectedCategoryContent.innerHTML = categoryItem.innerHTML;
+                
+                const placeholders = {
+                    software: '聚合搜索软件…',
+                    extension: '搜索浏览器扩展…',
+                    movie: '搜索影视资源…',
+                    free: '全网自由搜索…'
+                };
+                searchInput.placeholder = placeholders[currentCategory] || '搜索…';
+                dropdownMenu.classList.add('hidden');
+                dropdownToggle.classList.remove('open');
+            };
+            
+            updateSelectedCategory(document.querySelector('.dropdown-item[data-category="software"]'));
 
             dropdownMenu.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (e.target.closest('.dropdown-item')) {
-                    const item = e.target.closest('.dropdown-item');
-                    currentCategory = item.dataset.category;
-                    selectedCategoryText.textContent = item.textContent.trim();
-                    
-                    const placeholders = {
-                        software: '聚合搜索软件…',
-                        extension: '搜索浏览器扩展…',
-                        movie: '搜索影视资源…',
-                        free: '全网自由搜索…'
-                    };
-                    searchInput.placeholder = placeholders[currentCategory] || '搜索…';
-                    dropdownMenu.classList.add('hidden');
-                    dropdownToggle.classList.remove('open');
+                const item = e.target.closest('.dropdown-item');
+                if (item) {
+                   updateSelectedCategory(item);
                 }
             });
             
@@ -497,14 +539,12 @@
                 if (link) {
                     const url = link.dataset.url;
                     const name = link.textContent.trim();
-                    iframeView.innerHTML = `
-                        <div class="iframe-header">
-                            正在加载 ${name}。如果无法显示，请 <a href="${url}" target="_blank">在新标签页中打开</a>。
-                        </div>
-                        <iframe id="content-iframe" src="${url}" sandbox="allow-forms allow-scripts allow-same-origin"></iframe>
-                    `;
-                    showView(iframeView);
                     aiDropdownMenu.classList.add('hidden');
+
+                    showView(null);
+                    modalHeader.innerHTML = `正在加载 ${name}。如果无法显示，请 <a href="${url}" target="_blank">在新标签页中打开</a>。`;
+                    modalIframe.src = url;
+                    modalView.classList.add('active');
                 }
             });
             
