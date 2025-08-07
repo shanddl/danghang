@@ -1510,12 +1510,20 @@
                     newOption.textContent = '创建新分类...';
                     selectElement.appendChild(newOption);
                 },
-                processSiteForm: (formId) => {
+                processSiteForm: async (formId) => {
                     const isEdit = formId === 'edit-site-form';
-                    const name = dom[formId].querySelector(isEdit ? '#edit-site-name' : '#site-name').value.trim();
-                    let url = dom[formId].querySelector(isEdit ? '#edit-site-url' : '#site-url').value.trim();
-                    const categorySelect = dom[formId].querySelector(isEdit ? '#edit-site-category-select' : '#site-category-select');
-                    const newCategoryInput = dom[formId].querySelector(isEdit ? '#edit-site-category-new' : '#site-category-new');
+                    const camelCaseFormId = formId.replace(/-(\w)/g, (_, c) => c.toUpperCase());
+                    const formElement = dom[camelCaseFormId];
+
+                    if (!formElement) {
+                        console.error(`Form element with ID ${formId} not found in DOM cache.`);
+                        return;
+                    }
+                    
+                    const name = formElement.querySelector(isEdit ? '#edit-site-name' : '#site-name').value.trim();
+                    let url = formElement.querySelector(isEdit ? '#edit-site-url' : '#site-url').value.trim();
+                    const categorySelect = formElement.querySelector(isEdit ? '#edit-site-category-select' : '#site-category-select');
+                    const newCategoryInput = formElement.querySelector(isEdit ? '#edit-site-category-new' : '#site-category-new');
                     
                     let category = categorySelect.value;
                     if (category === STATIC_CONFIG.CONSTANTS.NEW_CATEGORY_VALUE) {
@@ -1536,22 +1544,25 @@
                         const itemData = { name, url, icon: iconUrl, category };
 
                         if (isEdit) {
-                            const index = dom.editSiteForm.querySelector('#edit-site-index').value;
+                            const index = formElement.querySelector('#edit-site-index').value;
                             state.userData.navItems[index] = itemData;
                         } else {
                             state.userData.navItems.push(itemData);
                         }
                         
-                        if (!state.userData.navCategories.includes(category)) state.userData.navCategories.push(category);
+                        if (!state.userData.navCategories.includes(category)) {
+                            state.userData.navCategories.push(category);
+                        }
                         
-                        core.saveUserData();
+                        await core.saveUserData();
                         render.islandCategories();
                         render.navItems(dom.islandCategoryList.querySelector('.active').dataset.category);
                         
-                        dom[formId].reset();
+                        formElement.reset();
                         dom[isEdit ? 'editSiteModal' : 'addSiteModal'].classList.remove('visible');
                     } catch (error) {
-                        alert("操作失败，请输入一个有效的网址。");
+                        console.error("处理网站表单时出错:", error);
+                        alert("操作失败，请输入一个有效的网址或检查网络连接。");
                     }
                 }
             };
@@ -1714,9 +1725,9 @@
                     e.preventDefault();
                     const form = e.target;
                     if (form === dom.addSiteForm) {
-                        utils.processSiteForm('add-site-form');
+                        await utils.processSiteForm('add-site-form');
                     } else if (form === dom.editSiteForm) {
-                        utils.processSiteForm('edit-site-form');
+                        await utils.processSiteForm('edit-site-form');
                     } else if (form === dom.addCategoryForm) {
                         const input = dom.addCategoryForm.querySelector('#category-name');
                         const newCategory = input.value.trim();
@@ -1786,14 +1797,17 @@
                     if (LEANCLOUD_CONFIG.appId && !LEANCLOUD_CONFIG.appId.startsWith('在此处')) {
                         AV.init(LEANCLOUD_CONFIG);
                         isLeanCloudInitialized = true;
+                        console.log("LeanCloud 初始化成功，已启用云同步模式。");
                     } else {
-                        console.error("LeanCloud App ID/Key 未配置！将以本地模式运行。");
-                        alert("欢迎使用！\n\n您尚未配置云同步功能。所有数据将仅保存在本地浏览器中。\n\n如需开启云同步，请在代码中填入您的 LeanCloud App ID 和 App Key。");
+                        // [FIX] Changed from alert to a friendlier console.info
+                        console.info("提示：LeanCloud App ID/Key 未配置。应用将以本地模式运行，数据将保存在您的浏览器中。");
                     }
                 } catch (error) {
                      console.error("LeanCloud 初始化失败:", error);
-                     alert("LeanCloud 初始化失败，请检查您的网络或配置。应用将以本地模式运行。");
+                     // [FIX] Changed from alert to a friendlier console.warn
+                     console.warn("LeanCloud 初始化失败，请检查您的网络或配置。应用将以本地模式运行。");
                 }
+
 
                 // 检查当前登录状态 (仅当初始化成功时)
                 if (isLeanCloudInitialized) {
