@@ -135,6 +135,30 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
+        #user-actions-container .header-btn#user-btn {
+            padding: 6px 16px 6px 8px;
+            height: auto;
+        }
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+        }
+        .user-avatar svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-secondary);
+        }
+        .user-name {
+            font-weight: 500;
+        }
+
+
         #user-actions-container .header-btn:not(:disabled):hover {
             background: rgba(45, 45, 45, 0.9);
             border-color: var(--blue);
@@ -1114,9 +1138,7 @@
                     DEFAULT_SEARCH_CATEGORY: 'free',
                     ALL_CATEGORIES: '全部',
                     NEW_CATEGORY_VALUE: '--new--',
-                    LOCAL_STORAGE_KEY: 'localUserData',
-                    LEANCLOUD_USER_CONFIG_CLASS: 'UserConfig',
-                    LEANCLOUD_USER_CONFIG_KEY: 'config'
+                    STORAGE_KEY: '灵动窗用户数据', // 统一的Key
                 }
             };
 
@@ -1167,76 +1189,40 @@
             const core = {
                 // --- 数据处理 ---
                 loadUserData: async () => {
-                    if (state.isLoggedIn) {
-                        // 从 LeanCloud 加载数据
-                        const query = new AV.Query(STATIC_CONFIG.CONSTANTS.LEANCLOUD_USER_CONFIG_CLASS);
-                        query.equalTo('owner', state.currentUser);
-                        try {
-                            const configObject = await query.first();
-                            if (configObject) {
-                                state.userConfigObject = configObject;
-                                const cloudData = configObject.get(STATIC_CONFIG.CONSTANTS.LEANCLOUD_USER_CONFIG_KEY);
-                                // 合并云端数据和默认数据，防止新增的配置项缺失
-                                state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...cloudData };
-                            } else {
-                                // 云端没有数据，使用默认数据并创建一个新的云端对象
-                                state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                                await core.saveUserData(true); // 首次保存
-                            }
-                        } catch (error) {
-                            console.error("从云端加载数据失败:", error);
-                            utils.showAlert("从云端加载您的配置失败，将使用本地数据。", "加载失败");
-                            core.loadLocalData();
+                    // 检查是否在扩展环境
+                    if (typeof chrome !== 'undefined' && chrome.storage) {
+                        const result = await chrome.storage.sync.get(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
+                        const storedData = result[STATIC_CONFIG.CONSTANTS.STORAGE_KEY];
+                        if (storedData) {
+                            state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...storedData };
+                        } else {
+                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                            // 首次运行时保存默认数据
+                            await core.saveUserData();
                         }
                     } else {
-                        // 从 localStorage 加载数据
-                        core.loadLocalData();
+                        // 网页环境逻辑 (保留LeanCloud/localStorage)
+                         console.warn("非扩展环境，数据将不会同步。");
+                         const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
+                         if(localData) {
+                            state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...JSON.parse(localData) };
+                         } else {
+                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                         }
                     }
-                    // 确保 searchHistory 是一个数组
+
                     if (!Array.isArray(state.userData.searchHistory)) {
                         state.userData.searchHistory = [];
                     }
                     core.applyAllSettings();
                 },
 
-                loadLocalData: () => {
-                    try {
-                        const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.LOCAL_STORAGE_KEY);
-                        if (localData) {
-                            state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...JSON.parse(localData) };
-                        } else {
-                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                        }
-                    } catch (e) {
-                        console.error("解析本地数据失败:", e);
-                        state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                    }
-                },
-
-                saveUserData: async (isFirstSave = false) => {
-                    if (state.isLoggedIn) {
-                        // 保存到 LeanCloud
-                        try {
-                            if (!state.userConfigObject) {
-                                const ConfigObject = AV.Object.extend(STATIC_CONFIG.CONSTANTS.LEANCLOUD_USER_CONFIG_CLASS);
-                                state.userConfigObject = new ConfigObject();
-                                const acl = new AV.ACL();
-                                acl.setReadAccess(state.currentUser, true);
-                                acl.setWriteAccess(state.currentUser, true);
-                                state.userConfigObject.setACL(acl);
-                                state.userConfigObject.set('owner', state.currentUser);
-                            }
-                            state.userConfigObject.set(STATIC_CONFIG.CONSTANTS.LEANCLOUD_USER_CONFIG_KEY, state.userData);
-                            await state.userConfigObject.save();
-                            if (!isFirstSave) console.log("数据已同步到云端。");
-                        } catch (error) {
-                            console.error("数据同步到云端失败:", error);
-                            utils.showAlert("数据同步失败，请稍后重试。", "同步失败");
-                        }
-                    } else {
-                        // 保存到 localStorage
-                        localStorage.setItem(STATIC_CONFIG.CONSTANTS.LOCAL_STORAGE_KEY, JSON.stringify(state.userData));
-                    }
+                saveUserData: async () => {
+                     if (typeof chrome !== 'undefined' && chrome.storage) {
+                        await chrome.storage.sync.set({ [STATIC_CONFIG.CONSTANTS.STORAGE_KEY]: state.userData });
+                     } else {
+                        localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(state.userData));
+                     }
                 },
 
                 applyAllSettings: () => {
@@ -1513,7 +1499,7 @@
                         try {
                             const importedData = JSON.parse(e.target.result);
                             if (Array.isArray(importedData.navItems) && Array.isArray(importedData.navCategories)) {
-                                utils.showConfirmModal('导入数据将覆盖您当前的设置（本地或云端），确定要继续吗？', () => {
+                                utils.showConfirmModal('导入数据将覆盖您当前的设置，确定要继续吗？', () => {
                                     state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...importedData };
                                     core.saveUserData();
                                     core.applyAllSettings();
@@ -2335,39 +2321,35 @@
                 });
                 dom.body = document.body;
 
-                // 初始化 LeanCloud
-                let isLeanCloudInitialized = false;
-                try {
-                    if (LEANCLOUD_CONFIG.appId && !LEANCLOUD_CONFIG.appId.startsWith('【')) {
-                        AV.init(LEANCLOUD_CONFIG);
-                        isLeanCloudInitialized = true;
-                        console.log("LeanCloud 初始化成功，已启用云同步模式。");
-                    } else {
-                        console.error("错误：LeanCloud App ID/Key 未配置。请在JS代码中填入您自己的密钥。");
-                        utils.showAlert("错误：云同步服务未配置，请检查代码中的 LEANCLOUD_CONFIG。", "配置错误")
+                // 初始化 LeanCloud (仅在非扩展环境中使用)
+                if (typeof chrome === 'undefined' || !chrome.storage) {
+                    try {
+                        if (LEANCLOUD_CONFIG.appId && !LEANCLOUD_CONFIG.appId.startsWith('【')) {
+                            AV.init(LEANCLOUD_CONFIG);
+                             console.log("LeanCloud 初始化成功。");
+                        } else {
+                            console.error("错误：LeanCloud App ID/Key 未配置。");
+                        }
+                    } catch (error) {
+                         console.error("LeanCloud 初始化失败:", error);
                     }
-                } catch (error) {
-                     console.error("LeanCloud 初始化失败:", error);
-                     utils.showAlert("LeanCloud 初始化失败，请检查您的网络或配置。", "初始化失败");
                 }
 
-
-                // 检查当前登录状态 (仅当初始化成功时)
-                if (isLeanCloudInitialized) {
+                // 检查当前登录状态 (仅在非扩展环境中使用)
+                if (typeof chrome === 'undefined' || !chrome.storage) {
                     state.currentUser = AV.User.current();
                     if (state.currentUser) {
-                         // 验证 session token 是否有效
                         try {
                             await state.currentUser.isAuthenticated();
                             state.isLoggedIn = true;
                         } catch (error) {
-                            // session token 无效，登出
-                            console.log("Session token 无效, 已自动登出。");
                             AV.User.logOut();
                             state.isLoggedIn = false;
                             state.currentUser = null;
                         }
                     }
+                } else {
+                    dom.userActionsContainer.style.display = 'none'; // 在扩展中隐藏登录/注册
                 }
 
                 // 渲染静态UI
@@ -2379,7 +2361,7 @@
                 render.selectedCategory(STATIC_CONFIG.CONSTANTS.DEFAULT_SEARCH_CATEGORY);
                 render.userActions();
 
-                // 加载用户数据（云端或本地）并应用设置
+                // 加载用户数据
                 await core.loadUserData();
 
                 // 启动定时器
@@ -2398,7 +2380,7 @@
                 // --- 绑定事件监听 ---
                 dom.body.addEventListener('dblclick', handlers.bodyDblClick);
                 dom.searchForm.addEventListener('submit', handlers.searchSubmit);
-                dom.homeBtn.addEventListener('click', () => render.view('initial'));
+                dom.homeBtn.addEventListener('click', () => updateView('initial'));
                 dom.weatherToggleBtn.addEventListener('click', core.toggleWeatherPanel);
                 dom.editModeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -2410,7 +2392,7 @@
                 dom.importFileInput.addEventListener('change', core.importData);
                 dom.sizeSlider.addEventListener('input', (e) => document.documentElement.style.setProperty('--nav-item-size', `${e.target.value}px`));
                 dom.sizeSlider.addEventListener('change', (e) => {
-                    core.setNavItemSize(e.target.value);
+                    state.userData.navSize = e.target.value;
                     core.saveUserData();
                 });
                 
@@ -2521,6 +2503,16 @@
                         dom.searchInput.value = items[state.activeSuggestionIndex].dataset.value;
                     }
                 });
+
+                // 监听来自扩展存储的更改
+                if (typeof chrome !== 'undefined' && chrome.storage) {
+                    chrome.storage.onChanged.addListener((changes, namespace) => {
+                        if (changes[STATIC_CONFIG.CONSTANTS.STORAGE_KEY]) {
+                            console.log('检测到存储变化，重新加载数据...');
+                            core.loadUserData();
+                        }
+                    });
+                }
             };
 
             document.addEventListener('DOMContentLoaded', init);
