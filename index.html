@@ -245,8 +245,13 @@
         .search-btn svg { width: 22px; height: 22px; }
         .search-btn:hover { color: var(--blue); background-color: rgba(255,255,255,0.08); }
         #clock {
-            flex-shrink: 0; font-size: 16px; font-weight: 500; color: var(--text-secondary);
-            padding: 0 16px; margin-left: 10px; letter-spacing: 1px;
+            flex-shrink: 0;
+            font-size: 16px;
+            font-weight: 500;
+            color: #E2B376; /* 金色 */
+            padding: 0 16px;
+            margin-left: 10px;
+            letter-spacing: 1px;
         }
 
         #search-suggestions-box {
@@ -1789,8 +1794,10 @@
                         const nickname = state.currentUser.get('nickname') || state.currentUser.getUsername();
             
                         userBtn.innerHTML = `
-                            <svg class="header-btn-icon" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
-                            <span>${nickname}</span>
+                            <div class="user-avatar">
+                                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+                            </div>
+                            <span class="user-name">${nickname}</span>
                         `;
                         
                         const userMenu = document.createElement('div');
