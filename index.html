@@ -1088,15 +1088,11 @@
             // == 1. 配置区域 (Configuration)
             // =================================================================
 
-            // --- LeanCloud 配置 ---
-            // !! 重要：请将您在 LeanCloud 获取到的 App ID 和 App Key 填入下方
             const LEANCLOUD_CONFIG = {
                 appId: "7Vo87apph5SCxcW1KFnR2OFC-MdYXbMMI",
                 appKey: "lnYVUVFSZkXdu6yYO3GOVljz",
-                // serverURL: "在此处粘贴您的服务器地址 (如果不是国际版)" // 国内版需要
             };
 
-            // --- 静态配置 ---
             const STATIC_CONFIG = {
                 SEARCH_ENGINES: {
                     'software_agg': { mode: 'AGGREGATED_LIST', name: '软件聚合', homeUrl: 'https://www.423down.com', sources: [ { name: '423Down', searchUrl: 'https://www.423down.com/?s={query}'}, { name: 'mefcl', searchUrl: 'https://www.mefcl.com/?s={query}'}, { name: '绿软小站', searchUrl: 'https://search.gndown.com/?s={query}'}, { name: 'OSSSR', searchUrl: 'https://www.osssr.com/search/{query}'} ] },
@@ -1138,13 +1134,10 @@
                     DEFAULT_SEARCH_CATEGORY: 'free',
                     ALL_CATEGORIES: '全部',
                     NEW_CATEGORY_VALUE: '--new--',
-                    STORAGE_KEY: '灵动窗用户数据', // 统一的Key
+                    STORAGE_KEY: '灵动窗用户数据',
                 }
             };
 
-            // =================================================================
-            // == 2. 应用状态管理 (State Management)
-            // =================================================================
             const state = {
                 currentSearchCategory: STATIC_CONFIG.CONSTANTS.DEFAULT_SEARCH_CATEGORY,
                 themeInterval: null,
@@ -1153,16 +1146,12 @@
                 isLoggedIn: false,
                 isRegisterMode: false,
                 currentUser: null,
-                userConfigObject: null, // LeanCloud 对象实例
+                userConfigObject: null,
                 weatherRendered: false,
                 activeSuggestionIndex: -1,
-                // 用户数据，会根据登录状态从云端或本地加载
                 userData: JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA))
             };
 
-            // =================================================================
-            // == 3. DOM 元素缓存 (DOM Cache)
-            // =================================================================
             const dom = {};
             const DOMElementsToCache = [
                 'body', 'home-btn', 'search-form', 'search-input', 'main-content', 'initial-view',
@@ -1184,31 +1173,77 @@
             ];
 
             // =================================================================
-            // == 4. 核心逻辑 (Core Logic)
+            // == NEW: 统一数据处理模块 (Unified Storage Module)
             // =================================================================
-            const core = {
-                // --- 数据处理 ---
-                loadUserData: async () => {
-                    // 检查是否在扩展环境
-                    if (typeof chrome !== 'undefined' && chrome.storage) {
-                        const result = await chrome.storage.sync.get(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
-                        const storedData = result[STATIC_CONFIG.CONSTANTS.STORAGE_KEY];
-                        if (storedData) {
-                            state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...storedData };
-                        } else {
-                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                            // 首次运行时保存默认数据
-                            await core.saveUserData();
+            const storage = {
+                isChromeStorage: (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync),
+
+                init: function() {
+                    if (this.isChromeStorage) {
+                        console.log("Storage Mode: chrome.storage.sync is active. Syncing is enabled.");
+                        chrome.storage.onChanged.addListener((changes, namespace) => {
+                            if (changes[STATIC_CONFIG.CONSTANTS.STORAGE_KEY] && namespace === 'sync') {
+                                console.log('Detected data change in chrome.storage.sync. Reloading data.');
+                                core.loadUserData();
+                            }
+                        });
+                    } else {
+                        console.warn("Storage Mode: chrome.storage.sync not found. Falling back to localStorage. Extension features will NOT sync.");
+                    }
+                },
+
+                get: async function() {
+                    if (this.isChromeStorage) {
+                        try {
+                            const result = await chrome.storage.sync.get(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
+                            return result[STATIC_CONFIG.CONSTANTS.STORAGE_KEY];
+                        } catch (e) {
+                            console.error("Error reading from chrome.storage.sync:", e);
+                            return null;
                         }
                     } else {
-                        // 网页环境逻辑 (保留LeanCloud/localStorage)
-                         console.warn("非扩展环境，数据将不会同步。");
-                         const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
-                         if(localData) {
-                            state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...JSON.parse(localData) };
-                         } else {
-                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                         }
+                        const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
+                        return localData ? JSON.parse(localData) : null;
+                    }
+                },
+
+                set: async function(data) {
+                    if (this.isChromeStorage) {
+                        try {
+                            await chrome.storage.sync.set({ [STATIC_CONFIG.CONSTANTS.STORAGE_KEY]: data });
+                        } catch (e) {
+                             console.error("Error writing to chrome.storage.sync:", e);
+                        }
+                    } else {
+                        localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(data));
+                    }
+                }
+            };
+            
+            // =================================================================
+            // == 核心逻辑 (Core Logic)
+            // =================================================================
+            const core = {
+                loadUserData: async () => {
+                    // LeanCloud 登录用户数据优先
+                    if (state.isLoggedIn && state.userConfigObject) {
+                        const cloudData = state.userConfigObject.get('data');
+                         if (cloudData) {
+                            console.log("Loading data from LeanCloud.");
+                            state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...cloudData };
+                            core.applyAllSettings();
+                            return;
+                        }
+                    }
+                    
+                    // 否则，使用重构后的 storage 模块
+                    console.log("Loading data from local storage module.");
+                    const storedData = await storage.get();
+                    if (storedData) {
+                        state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...storedData };
+                    } else {
+                        state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                        await core.saveUserData(); // 首次运行，保存默认数据
                     }
 
                     if (!Array.isArray(state.userData.searchHistory)) {
@@ -1218,11 +1253,16 @@
                 },
 
                 saveUserData: async () => {
-                     if (typeof chrome !== 'undefined' && chrome.storage) {
-                        await chrome.storage.sync.set({ [STATIC_CONFIG.CONSTANTS.STORAGE_KEY]: state.userData });
-                     } else {
-                        localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(state.userData));
-                     }
+                    // LeanCloud 登录用户数据优先
+                    if (state.isLoggedIn && state.userConfigObject) {
+                        console.log("Saving data to LeanCloud.");
+                        state.userConfigObject.set('data', state.userData);
+                        await state.userConfigObject.save();
+                        return;
+                    }
+                    // 否则，使用重构后的 storage 模块
+                    console.log("Saving data to local storage module.");
+                    await storage.set(state.userData);
                 },
 
                 applyAllSettings: () => {
@@ -1299,6 +1339,22 @@
                 handleLoginSuccess: async () => {
                     state.currentUser = AV.User.current();
                     state.isLoggedIn = true;
+                    
+                    // 获取或创建用户配置对象
+                    const query = new AV.Query('UserConfig');
+                    query.equalTo('owner', state.currentUser);
+                    state.userConfigObject = await query.first();
+                    
+                    if (!state.userConfigObject) {
+                        const UserConfig = AV.Object.extend('UserConfig');
+                        state.userConfigObject = new UserConfig();
+                        state.userConfigObject.set('owner', state.currentUser);
+                        // 将本地数据作为首次云端数据
+                        const localData = await storage.get();
+                        state.userConfigObject.set('data', localData || STATIC_CONFIG.DEFAULT_USER_DATA);
+                        await state.userConfigObject.save();
+                    }
+                    
                     dom.authModal.classList.remove('visible');
                     utils.closeAllDropdowns();
                     render.userActions();
@@ -1320,7 +1376,6 @@
                 fetchWeatherData: async () => {
                     let geoData;
                     try {
-                        // 优先尝试中文API
                         const geoResponse = await fetch('https://ip-api.com/json/?lang=zh-CN');
                         if (!geoResponse.ok) throw new Error('主API网络请求失败');
                         const data = await geoResponse.json();
@@ -1336,7 +1391,6 @@
                     } catch (error1) {
                         console.warn("主地理位置API失败，尝试备用API:", error1);
                         try {
-                            // 备用API
                             const geoResponse = await fetch('https://ipinfo.io/json');
                             if (!geoResponse.ok) throw new Error('备用API网络请求失败');
                             const data = await geoResponse.json();
@@ -1423,11 +1477,9 @@
                     dom.weatherToggleBtn.classList.toggle('active');
                 },
 
-                // --- 其他核心功能 ---
                 performSearch: (query) => {
                     if (!query) return;
 
-                    // --- Add to search history ---
                     if (!Array.isArray(state.userData.searchHistory)) {
                         state.userData.searchHistory = [];
                     }
@@ -1437,7 +1489,6 @@
                         state.userData.searchHistory.pop();
                     }
                     core.saveUserData();
-                    // --- End of history logic ---
 
                     const config = STATIC_CONFIG.SEARCH_ENGINES[state.currentSearchCategory];
                     if (!config) return;
@@ -1486,7 +1537,7 @@
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `navigation-data-${new Date().toISOString().slice(0,10)}.json`;
+                    a.download = `灵动窗数据-${new Date().toISOString().slice(0,10)}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
                 },
@@ -1518,9 +1569,6 @@
                 },
             };
 
-            // =================================================================
-            // == 5. 渲染函数 (Renderers)
-            // =================================================================
             const render = {
                 searchCategories: () => {
                     const fragment = document.createDocumentFragment();
@@ -1892,9 +1940,6 @@
                 },
             };
 
-            // =================================================================
-            // == 6. 事件处理 (Event Handlers)
-            // =================================================================
             const utils = {
                 debounce: (func, delay) => {
                     let timeout;
@@ -1914,41 +1959,27 @@
                     dom.customAlertModal.classList.add('visible');
                 },
                 translateError: (error) => {
-                    console.error("LeanCloud Error:", error); // Log the full error for debugging
+                    console.error("LeanCloud Error:", error);
                     let message = error.rawMessage || '发生未知错误，请稍后再试';
                     if (error.code) {
                         switch (error.code) {
-                            case 202:
-                                message = '用户名（邮箱）已被注册';
-                                break;
-                            case 203:
-                                message = '电子邮箱地址已经被占用';
-                                break;
-                            case 210: // The username and password mismatch.
-                            case 211: // Could not find user.
-                                message = '账户或密码错误';
-                                break;
-                            case 217:
-                                message = '无效的用户名，不允许空白';
-                                break;
-                            case 218:
-                                message = '无效的密码，不允许空白';
-                                break;
-                            default:
-                                message = error.rawMessage || `发生未知错误 (代码: ${error.code})`;
+                            case 202: message = '用户名（邮箱）已被注册'; break;
+                            case 203: message = '电子邮箱地址已经被占用'; break;
+                            case 210: case 211: message = '账户或密码错误'; break;
+                            case 217: message = '无效的用户名，不允许空白'; break;
+                            case 218: message = '无效的密码，不允许空白'; break;
+                            default: message = error.rawMessage || `发生未知错误 (代码: ${error.code})`;
                         }
                     }
                     return message;
                 },
                 translateWeatherCode: (code) => {
                     const map = {
-                        0: '晴', 1: '晴', 2: '多云', 3: '多云',
-                        45: '雾', 48: '雾',
+                        0: '晴', 1: '晴', 2: '多云', 3: '多云', 45: '雾', 48: '雾',
                         51: '小雨', 53: '小雨', 55: '中雨', 56: '小雨', 57: '中雨',
                         61: '小雨', 63: '中雨', 65: '大雨', 66: '小雨', 67: '大雨',
                         71: '小雪', 73: '中雪', 75: '大雪', 77: '雪',
-                        80: '阵雨', 81: '阵雨', 82: '大阵雨',
-                        85: '阵雪', 86: '大阵雪',
+                        80: '阵雨', 81: '阵雨', 82: '大阵雨', 85: '阵雪', 86: '大阵雪',
                         95: '雷阵雨', 96: '雷阵雨', 99: '雷阵雨'
                     };
                     return map[code] || '未知';
@@ -2310,66 +2341,50 @@
             
             handlers.debouncedFetchSuggestions = utils.debounce(handlers.fetchGoogleSuggestions, 250);
 
-            // =================================================================
-            // == 7. 初始化 (Initialization)
-            // =================================================================
             const init = async () => {
-                // 缓存 DOM
                 DOMElementsToCache.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
                     dom[camelCaseId] = document.getElementById(id);
                 });
                 dom.body = document.body;
 
-                // 初始化 LeanCloud (仅在非扩展环境中使用)
-                if (typeof chrome === 'undefined' || !chrome.storage) {
-                    try {
-                        if (LEANCLOUD_CONFIG.appId && !LEANCLOUD_CONFIG.appId.startsWith('【')) {
-                            AV.init(LEANCLOUD_CONFIG);
-                             console.log("LeanCloud 初始化成功。");
-                        } else {
-                            console.error("错误：LeanCloud App ID/Key 未配置。");
-                        }
-                    } catch (error) {
-                         console.error("LeanCloud 初始化失败:", error);
-                    }
-                }
+                storage.init(); // 初始化存储模块和监听器
 
-                // 检查当前登录状态 (仅在非扩展环境中使用)
-                if (typeof chrome === 'undefined' || !chrome.storage) {
-                    state.currentUser = AV.User.current();
-                    if (state.currentUser) {
-                        try {
+                try {
+                    if (LEANCLOUD_CONFIG.appId && !LEANCLOUD_CONFIG.appId.startsWith('【')) {
+                        AV.init(LEANCLOUD_CONFIG);
+                        state.currentUser = AV.User.current();
+                        if (state.currentUser) {
                             await state.currentUser.isAuthenticated();
                             state.isLoggedIn = true;
-                        } catch (error) {
-                            AV.User.logOut();
-                            state.isLoggedIn = false;
-                            state.currentUser = null;
+                            await core.handleLoginSuccess(); // This will fetch or create the config object
                         }
+                    } else {
+                        console.error("错误：LeanCloud App ID/Key 未配置。");
                     }
-                } else {
-                    dom.userActionsContainer.style.display = 'none'; // 在扩展中隐藏登录/注册
+                } catch (error) {
+                    console.warn("LeanCloud check failed, user is not logged in.", error);
+                    AV.User.logOut();
+                    state.isLoggedIn = false;
+                    state.currentUser = null;
                 }
-
-                // 渲染静态UI
+                
+                render.userActions();
                 render.searchCategories();
                 render.aiTools();
                 render.themes();
                 render.addMenu();
                 render.shapeMenu();
                 render.selectedCategory(STATIC_CONFIG.CONSTANTS.DEFAULT_SEARCH_CATEGORY);
-                render.userActions();
 
-                // 加载用户数据
-                await core.loadUserData();
+                if (!state.isLoggedIn) {
+                    await core.loadUserData(); // 仅在未登录时从本地加载
+                }
 
-                // 启动定时器
                 core.updateClock();
                 setInterval(core.updateClock, 1000);
                 core.startThemeRotation();
                 
-                // 移除首次加载的过渡动画
                 dom.mainContent.classList.add('no-transition', 'active');
                 dom.modalView.classList.add('no-transition');
                 requestAnimationFrame(() => {
@@ -2377,10 +2392,9 @@
                     dom.modalView.classList.remove('no-transition');
                 });
 
-                // --- 绑定事件监听 ---
                 dom.body.addEventListener('dblclick', handlers.bodyDblClick);
                 dom.searchForm.addEventListener('submit', handlers.searchSubmit);
-                dom.homeBtn.addEventListener('click', () => render.view('initial')); // <--- 问题修复在这里
+                dom.homeBtn.addEventListener('click', () => render.view('initial'));
                 dom.weatherToggleBtn.addEventListener('click', core.toggleWeatherPanel);
                 dom.editModeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -2434,7 +2448,7 @@
                         dom.searchSuggestionsBox.classList.remove('visible');
                         return;
                     }
-                    state.activeSuggestionIndex = -1; // Reset selection on new input
+                    state.activeSuggestionIndex = -1;
                     const query = dom.searchInput.value.trim();
                     if (query) {
                         handlers.debouncedFetchSuggestions(query);
@@ -2488,9 +2502,9 @@
                             e.preventDefault();
                             items[state.activeSuggestionIndex].click();
                         }
-                        return; // Allow form submission if no item is selected
+                        return;
                     } else {
-                        return; // Exit for other keys
+                        return;
                     }
 
                     state.activeSuggestionIndex = newIndex;
@@ -2498,21 +2512,11 @@
                     items.forEach((item, index) => {
                         item.classList.toggle('active', index === newIndex);
                     });
-                     // Also update the input value to reflect the selection
+                     
                     if (state.activeSuggestionIndex > -1) {
                         dom.searchInput.value = items[state.activeSuggestionIndex].dataset.value;
                     }
                 });
-
-                // 监听来自扩展存储的更改
-                if (typeof chrome !== 'undefined' && chrome.storage) {
-                    chrome.storage.onChanged.addListener((changes, namespace) => {
-                        if (changes[STATIC_CONFIG.CONSTANTS.STORAGE_KEY]) {
-                            console.log('检测到存储变化，重新加载数据...');
-                            core.loadUserData();
-                        }
-                    });
-                }
             };
 
             document.addEventListener('DOMContentLoaded', init);
