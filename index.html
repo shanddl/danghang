@@ -226,7 +226,7 @@
             transition-duration: 0.1s;
         }
         .dropdown-item-favicon { width: 16px; height: 16px; margin-right: 10px; border-radius: 4px; }
-        .dropdown-item:hover {
+        .dropdown-item:hover, .dropdown-item.active {
             background-color: rgba(255, 255, 255, 0.1);
         }
         
@@ -286,6 +286,22 @@
         .suggestion-item .remove-history-btn:hover {
             background-color: rgba(255, 255, 255, 0.2);
             color: var(--text-primary);
+        }
+        
+        #search-suggestions-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        #search-suggestions-box::-webkit-scrollbar-track {
+            background: var(--bg);
+            border-radius: 10px;
+        }
+        #search-suggestions-box::-webkit-scrollbar-thumb {
+            background-color: var(--border-color);
+            border-radius: 10px;
+            border: 2px solid var(--bg);
+        }
+        #search-suggestions-box::-webkit-scrollbar-thumb:hover {
+            background-color: var(--blue);
         }
 
         /* * ================================================
@@ -1112,6 +1128,7 @@
                 currentUser: null,
                 userConfigObject: null, // LeanCloud 对象实例
                 weatherRendered: false,
+                activeSuggestionIndex: -1,
                 // 用户数据，会根据登录状态从云端或本地加载
                 userData: JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA))
             };
@@ -1658,6 +1675,7 @@
                     const config = STATIC_CONFIG.SEARCH_ENGINES[categoryKey];
                     dom.searchInput.placeholder = config ? `在 ${config.name} 中搜索...` : '搜索...';
                     utils.closeAllDropdowns();
+                    dom.searchSuggestionsBox.classList.remove('visible');
                 },
 
                 navItems: (category = STATIC_CONFIG.CONSTANTS.ALL_CATEGORIES) => {
@@ -1856,6 +1874,9 @@
                         const div = document.createElement('div');
                         div.className = 'dropdown-item suggestion-item';
                         div.dataset.value = item;
+                        if (index === state.activeSuggestionIndex) {
+                            div.classList.add('active');
+                        }
 
                         const textSpan = document.createElement('span');
                         textSpan.textContent = item;
@@ -1945,9 +1966,11 @@
                 },
                 closeAllDropdowns: () => {
                     document.querySelectorAll('.dropdown-menu.visible').forEach(menu => {
-                        menu.classList.remove('visible');
-                        const btn = menu.parentElement.querySelector('[aria-expanded="true"]');
-                        if (btn) btn.setAttribute('aria-expanded', 'false');
+                        if (menu.id !== 'search-suggestions-box') {
+                           menu.classList.remove('visible');
+                           const btn = menu.parentElement.querySelector('[aria-expanded="true"]');
+                           if (btn) btn.setAttribute('aria-expanded', 'false');
+                        }
                     });
                 },
                 populateCategoryDropdowns: (selectElement, selectedCategory = '') => {
@@ -2040,6 +2063,34 @@
                         delete window.suggestionScript;
                     };
                     script.src = `https://suggestion.baidu.com/su?wd=${encodedQuery}&cb=handleBaiduSuggestions`;
+                    document.body.appendChild(script);
+                },
+                fetchGoogleSuggestions: (query) => {
+                    if (window.suggestionScript) {
+                        document.body.removeChild(window.suggestionScript);
+                    }
+                    const script = document.createElement('script');
+                    window.suggestionScript = script;
+                    const encodedQuery = encodeURIComponent(query);
+                    
+                    window.handleGoogleSuggestions = (data) => {
+                        const suggestions = data[1] || [];
+                        render.suggestions(suggestions, 'suggestion');
+                        if (script.parentNode) {
+                            script.parentNode.removeChild(script);
+                        }
+                        delete window.handleGoogleSuggestions;
+                        delete window.suggestionScript;
+                    };
+                    
+                    script.src = `https://suggestqueries.google.com/complete/search?client=firefox&q=${encodedQuery}&callback=handleGoogleSuggestions`;
+                    script.onerror = () => {
+                        console.warn('Google suggestions failed, falling back to Baidu.');
+                        handlers.fetchBaiduSuggestions(query);
+                        if (script.parentNode) {
+                            script.parentNode.removeChild(script);
+                        }
+                    };
                     document.body.appendChild(script);
                 },
                 bodyDblClick: (e) => {
@@ -2264,7 +2315,7 @@
                 },
             };
             
-            handlers.debouncedFetchSuggestions = utils.debounce(handlers.fetchBaiduSuggestions, 250);
+            handlers.debouncedFetchSuggestions = utils.debounce(handlers.fetchGoogleSuggestions, 250);
 
             // =================================================================
             // == 7. 初始化 (Initialization)
@@ -2383,12 +2434,18 @@
                 });
 
                 dom.searchInput.addEventListener('focus', () => {
+                    if (state.currentSearchCategory !== 'free') return;
                     if (!dom.searchInput.value.trim() && state.userData.searchHistory.length > 0) {
                         render.suggestions(state.userData.searchHistory, 'history');
                     }
                 });
 
                 dom.searchInput.addEventListener('input', () => {
+                    if (state.currentSearchCategory !== 'free') {
+                        dom.searchSuggestionsBox.classList.remove('visible');
+                        return;
+                    }
+                    state.activeSuggestionIndex = -1; // Reset selection on new input
                     const query = dom.searchInput.value.trim();
                     if (query) {
                         handlers.debouncedFetchSuggestions(query);
@@ -2419,6 +2476,42 @@
                         dom.searchInput.value = value;
                         dom.searchSuggestionsBox.classList.remove('visible');
                         core.performSearch(value);
+                    }
+                });
+
+                dom.searchInput.addEventListener('keydown', (e) => {
+                    const suggestionsBox = dom.searchSuggestionsBox;
+                    if (!suggestionsBox.classList.contains('visible')) return;
+
+                    const items = suggestionsBox.querySelectorAll('.suggestion-item');
+                    if (items.length === 0) return;
+
+                    let newIndex = state.activeSuggestionIndex;
+
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        newIndex = (state.activeSuggestionIndex + 1) % items.length;
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        newIndex = (state.activeSuggestionIndex - 1 + items.length) % items.length;
+                    } else if (e.key === 'Enter') {
+                        if (state.activeSuggestionIndex > -1) {
+                            e.preventDefault();
+                            items[state.activeSuggestionIndex].click();
+                        }
+                        return; // Allow form submission if no item is selected
+                    } else {
+                        return; // Exit for other keys
+                    }
+
+                    state.activeSuggestionIndex = newIndex;
+                    
+                    items.forEach((item, index) => {
+                        item.classList.toggle('active', index === newIndex);
+                    });
+                     // Also update the input value to reflect the selection
+                    if (state.activeSuggestionIndex > -1) {
+                        dom.searchInput.value = items[state.activeSuggestionIndex].dataset.value;
                     }
                 });
             };
