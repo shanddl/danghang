@@ -108,7 +108,7 @@
         }
         .header-btn-icon { width: 20px; height: 20px; margin-right: 8px; fill: currentColor; }
         .home-btn { margin-right: 10px; }
-        .ai-btn-container, .theme-btn-container, #user-actions-container { position: relative; margin-left: 10px; }
+        .ai-btn-container, .theme-btn-container { position: relative; margin-left: 10px; }
         .header-btn:not(:disabled):hover {
             transform: translateY(-2px) scale(1.02);
             border-color: var(--blue);
@@ -120,18 +120,24 @@
             transition-duration: 0.1s;
         }
 
-        /* 对登录后的用户按钮应用玻璃质感样式 */
-        #user-btn {
-            background: var(--ios-glass-bg); /* 使用玻璃背景变量 */
+        #user-actions-container {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            z-index: 101;
+        }
+
+        #user-actions-container .header-btn {
+            background: var(--ios-glass-bg);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* 覆盖 .header-btn 的 hover 效果，防止背景变实色 */
-        #user-btn:not(:disabled):hover {
-            background: rgba(45, 45, 45, 0.9); /* 悬浮时加深一点玻璃效果 */
-            border-color: var(--blue); /* 边框变色保持一致 */
+        #user-actions-container .header-btn:not(:disabled):hover {
+            background: rgba(45, 45, 45, 0.9);
+            border-color: var(--blue);
             color: var(--blue);
         }
 
@@ -502,14 +508,14 @@
             width: 14px; height: 14px; fill: currentColor; margin-right: 6px;
         }
         
-        #auth-modal .modal-content, #forgot-password-modal .modal-content {
+        #auth-modal .modal-content, #forgot-password-modal .modal-content, #custom-alert-modal .modal-content {
             background: #292a2d;
             border-radius: 12px;
             padding: 32px;
             width: 90%;
             max-width: 360px;
         }
-        #auth-modal h3, #forgot-password-modal h3 {
+        #auth-modal h3, #forgot-password-modal h3, #custom-alert-modal h3 {
             font-weight: 500;
             font-size: 20px;
             margin-bottom: 24px;
@@ -767,8 +773,8 @@
                  </button>
                  <div id="theme-dropdown-menu" class="dropdown-menu theme-dropdown-menu" role="menu"></div>
              </div>
-             <div id="user-actions-container"></div>
         </div>
+        <div id="user-actions-container"></div>
     </header>
     
     <div id="content-wrapper">
@@ -958,6 +964,16 @@
             </div>
         </div>
     </div>
+
+    <div id="custom-alert-modal" class="modal-overlay" role="alertdialog" aria-modal="true">
+        <div class="modal-content">
+            <h3 id="custom-alert-title">提示</h3>
+            <p id="custom-alert-message" style="margin: 20px 0; color: var(--text-secondary); text-align: center;"></p>
+            <div class="modal-actions" style="justify-content: center;">
+                <button type="button" class="modal-btn save" data-action="close-modal">确认</button>
+            </div>
+        </div>
+    </div>
     
     <input type="file" id="import-file-input" class="hidden" accept=".json">
 
@@ -1072,6 +1088,7 @@
                 'auth-password', 'auth-error', 'auth-submit-btn', 'auth-switch', 'auth-nickname',
                 'forgot-password-link', 'forgot-password-modal', 'forgot-password-form',
                 'search-results-container', 'search-stats', 'search-results-list',
+                'custom-alert-modal', 'custom-alert-title', 'custom-alert-message',
             ];
 
             // =================================================================
@@ -1098,7 +1115,7 @@
                             }
                         } catch (error) {
                             console.error("从云端加载数据失败:", error);
-                            alert("从云端加载您的配置失败，将使用本地数据。");
+                            utils.showAlert("从云端加载您的配置失败，将使用本地数据。", "加载失败");
                             core.loadLocalData();
                         }
                     } else {
@@ -1140,7 +1157,7 @@
                             if (!isFirstSave) console.log("数据已同步到云端。");
                         } catch (error) {
                             console.error("数据同步到云端失败:", error);
-                            alert("数据同步失败，请稍后重试。");
+                            utils.showAlert("数据同步失败，请稍后重试。", "同步失败");
                         }
                     } else {
                         // 保存到 localStorage
@@ -1157,12 +1174,9 @@
 
                 // --- 认证 ---
                 register: async (username, password) => {
-                    // --- 获取并验证新增的昵称 ---
                     const nickname = dom.authNickname.value.trim();
                     if (!nickname) {
-                        const errorMsg = '昵称不能为空！';
-                        alert(errorMsg);
-                        dom.authError.textContent = errorMsg;
+                        utils.showAlert('昵称不能为空！', '注册错误');
                         dom.authSubmitBtn.disabled = false;
                         dom.authSubmitBtn.textContent = '创建账户';
                         return;
@@ -1170,9 +1184,7 @@
             
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (!emailRegex.test(username)) {
-                        const errorMsg = '请输入有效的邮箱地址作为用户名！';
-                        alert(errorMsg);
-                        dom.authError.textContent = errorMsg;
+                        utils.showAlert('请输入有效的邮箱地址作为用户名！', '注册错误');
                         dom.authSubmitBtn.disabled = false;
                         dom.authSubmitBtn.textContent = '创建账户';
                         return;
@@ -1186,10 +1198,10 @@
             
                     try {
                         await user.signUp();
-                        alert(`注册成功！欢迎 ${nickname}，已为您自动登录。`);
+                        utils.showAlert(`注册成功！欢迎 ${nickname}，已为您自动登录。`, '欢迎');
                         await core.handleLoginSuccess();
                     } catch (error) {
-                        dom.authError.textContent = error.rawMessage || '注册失败，请稍后再试';
+                        utils.showAlert(utils.translateError(error), '注册失败');
                         console.error("注册失败:", error);
                         dom.authSubmitBtn.disabled = false;
                         dom.authSubmitBtn.textContent = '创建账户';
@@ -1201,7 +1213,7 @@
                         await AV.User.logIn(username, password);
                         await core.handleLoginSuccess();
                     } catch (error) {
-                        dom.authError.textContent = error.rawMessage || '登录失败，请检查用户名和密码';
+                        utils.showAlert(utils.translateError(error), '登录失败');
                         console.error("登录失败:", error);
                         dom.authSubmitBtn.disabled = false;
                         render.authModal();
@@ -1218,7 +1230,7 @@
                         utils.closeAllDropdowns();
                         render.userActions();
                         await core.loadUserData();
-                        alert("您已退出登录。");
+                        utils.showAlert("您已退出登录。");
                     } catch (error) {
                         console.error("退出登录失败:", error);
                     }
@@ -1236,62 +1248,73 @@
                 handlePasswordReset: async (email) => {
                     try {
                         await AV.User.requestPasswordReset(email);
-                        alert("如果该邮箱已注册，一封重设密码的邮件将会发送到您的收件箱，请注意查收。");
+                        utils.showAlert("如果该邮箱已注册，一封重设密码的邮件将会发送到您的收件箱，请注意查收。");
                         dom.forgotPasswordModal.classList.remove('visible');
                     } catch (error) {
                         console.error("密码重置请求失败:", error);
-                        alert(`操作失败: ${error.rawMessage || '请稍后重试'}`);
+                        utils.showAlert(`操作失败: ${utils.translateError(error)}`, '操作失败');
                     }
                 },
                 
                 // --- 天气 ---
                 fetchWeatherData: async () => {
-                    const getForecastDays = () => {
-                        const dayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-                        const today = new Date();
-                        let forecast = [{ day: "今天" }, { day: "明天" }];
-                        for (let i = 2; i < 5; i++) {
-                            const futureDate = new Date(today);
-                            futureDate.setDate(today.getDate() + i);
-                            forecast.push({ day: dayNames[futureDate.getDay()] });
-                        }
-                        const mockConditions = [
-                            { condition: "雷阵雨", temp: "32/27°C" }, { condition: "多云", temp: "33/28°C" },
-                            { condition: "晴", temp: "34/28°C" }, { condition: "晴", temp: "34/29°C" },
-                            { condition: "多云", temp: "33/28°C" }
-                        ];
-                        return forecast.map((item, index) => ({ ...item, ...mockConditions[index] }));
-                    };
+                    try {
+                        // 1. 获取 IP 地址信息
+                        const geoResponse = await fetch('https://ipapi.co/json/');
+                        if (!geoResponse.ok) throw new Error('无法获取地理位置信息');
+                        const geoData = await geoResponse.json();
+                        const { city, latitude, longitude } = geoData;
 
-                    const fallbackData = {
-                        location: "台湾省彰化县鹿港镇",
-                        current: { temp: 31, condition: "多云", wind: "西南风 3级", humidity: "75%" },
-                        forecast: getForecastDays()
-                    };
+                        // 2. 使用经纬度获取天气信息
+                        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+                        const weatherResponse = await fetch(weatherUrl);
+                        if (!weatherResponse.ok) throw new Error('无法获取天气数据');
+                        const weatherData = await weatherResponse.json();
 
-                    if (!navigator.geolocation) {
-                        console.warn("Geolocation not supported, using fallback data.");
-                        return fallbackData;
+                        // 3. 格式化数据以匹配渲染函数
+                        const getForecastDays = () => {
+                            const dayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+                            const today = new Date();
+                            let forecast = [{ day: "今天" }, { day: "明天" }];
+                            for (let i = 2; i < 5; i++) {
+                                const futureDate = new Date(today);
+                                futureDate.setDate(today.getDate() + i);
+                                forecast.push({ day: dayNames[futureDate.getDay()] });
+                            }
+                            return forecast;
+                        };
+                        
+                        const formattedForecast = getForecastDays().map((item, index) => {
+                             const dailyData = weatherData.daily;
+                             return {
+                                day: item.day,
+                                condition: utils.translateWeatherCode(dailyData.weather_code[index]),
+                                temp: `${Math.round(dailyData.temperature_2m_max[index])}/${Math.round(dailyData.temperature_2m_min[index])}°C`
+                             };
+                        });
+
+                        return {
+                            location: city || "未知位置",
+                            current: {
+                                temp: Math.round(weatherData.current.temperature_2m),
+                                condition: utils.translateWeatherCode(weatherData.current.weather_code),
+                                wind: `风速 ${weatherData.current.wind_speed_10m} km/h`,
+                                humidity: `${weatherData.current.relative_humidity_2m}%`
+                            },
+                            forecast: formattedForecast.slice(0, 5) // 确保只返回5天
+                        };
+
+                    } catch (error) {
+                        console.error("获取天气数据失败:", error);
+                         // 返回一个明确的错误或备用数据
+                        return {
+                            location: "无法加载",
+                            current: { temp: 'N/A', condition: "未知", wind: "N/A", humidity: "N/A" },
+                            forecast: Array(5).fill({ day: "N/A", condition: "未知", temp: "N/A" })
+                        };
                     }
-
-                    return new Promise((resolve) => {
-                        navigator.geolocation.getCurrentPosition(
-                            (position) => {
-                                const dynamicData = {
-                                    location: "当前位置",
-                                    current: { temp: 31, condition: "多云", wind: "西南风 3级", humidity: "75%" },
-                                    forecast: getForecastDays()
-                                };
-                                resolve(dynamicData);
-                            },
-                            (error) => {
-                                console.warn("Geolocation failed, using fallback data.", error.message);
-                                resolve(fallbackData);
-                            },
-                            { timeout: 5000 }
-                        );
-                    });
                 },
+
 
                 toggleWeatherPanel: async () => {
                     const isVisible = dom.weatherPanel.classList.contains('visible');
@@ -1377,13 +1400,13 @@
                                     state.userData = { ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)), ...importedData };
                                     core.saveUserData();
                                     core.applyAllSettings();
-                                    alert('数据导入成功！');
+                                    utils.showAlert('数据导入成功！');
                                 });
                             } else {
-                                alert('文件格式无效！');
+                                utils.showAlert('文件格式无效！', '导入错误');
                             }
                         } catch (error) {
-                            alert('导入失败，文件可能已损坏。');
+                            utils.showAlert('导入失败，文件可能已损坏。', '导入错误');
                         } finally {
                             dom.importFileInput.value = '';
                         }
@@ -1737,6 +1760,51 @@
                     dom.confirmModal.classList.add('visible');
                     state.confirmCallback = onConfirm;
                 },
+                showAlert: (message, title = '提示') => {
+                    dom.customAlertTitle.textContent = title;
+                    dom.customAlertMessage.textContent = message;
+                    dom.customAlertModal.classList.add('visible');
+                },
+                translateError: (error) => {
+                    console.error("LeanCloud Error:", error); // Log the full error for debugging
+                    let message = error.rawMessage || '发生未知错误，请稍后再试';
+                    if (error.code) {
+                        switch (error.code) {
+                            case 202:
+                                message = '用户名（邮箱）已被注册';
+                                break;
+                            case 203:
+                                message = '电子邮箱地址已经被占用';
+                                break;
+                            case 210: // The username and password mismatch.
+                            case 211: // Could not find user.
+                                message = '账户或密码错误';
+                                break;
+                            case 217:
+                                message = '无效的用户名，不允许空白';
+                                break;
+                            case 218:
+                                message = '无效的密码，不允许空白';
+                                break;
+                            default:
+                                message = error.rawMessage || `发生未知错误 (代码: ${error.code})`;
+                        }
+                    }
+                    return message;
+                },
+                translateWeatherCode: (code) => {
+                    const map = {
+                        0: '晴', 1: '晴', 2: '多云', 3: '多云',
+                        45: '雾', 48: '雾',
+                        51: '小雨', 53: '小雨', 55: '中雨', 56: '小雨', 57: '中雨',
+                        61: '小雨', 63: '中雨', 65: '大雨', 66: '小雨', 67: '大雨',
+                        71: '小雪', 73: '中雪', 75: '大雪', 77: '雪',
+                        80: '阵雨', 81: '阵雨', 82: '大阵雨',
+                        85: '阵雪', 86: '大阵雪',
+                        95: '雷阵雨', 96: '雷阵雨', 99: '雷阵雨'
+                    };
+                    return map[code] || '未知';
+                },
                 toggleDropdown: (button, menu) => {
                     const isExpanded = menu.classList.toggle('visible');
                     button.setAttribute('aria-expanded', isExpanded);
@@ -1783,7 +1851,7 @@
                     }
 
                     if (!name || !url || !category) {
-                        alert('请填写所有字段！');
+                        utils.showAlert('请填写所有字段！');
                         return;
                     }
 
@@ -1814,7 +1882,7 @@
                         dom[isEdit ? 'editSiteModal' : 'addSiteModal'].classList.remove('visible');
                     } catch (error) {
                         console.error("处理网站表单时出错:", error);
-                        alert("操作失败，请输入一个有效的网址或检查网络连接。");
+                        utils.showAlert("操作失败，请输入一个有效的网址或检查网络连接。", "错误");
                     }
                 }
             };
@@ -1990,7 +2058,7 @@
                                 render.islandCategories();
                                 dom.addCategoryModal.classList.remove('visible');
                             } else {
-                                alert('该分类已存在！');
+                                utils.showAlert('该分类已存在！');
                             }
                         }
                         input.value = '';
@@ -1999,7 +2067,7 @@
                         const newName = dom.editCategoryForm.querySelector('#edit-category-name').value.trim();
                         if (newName && newName !== oldName) {
                             if (state.userData.navCategories.includes(newName)) {
-                                alert('该分类名称已存在！');
+                                utils.showAlert('该分类名称已存在！');
                                 return;
                             }
                             const index = state.userData.navCategories.indexOf(oldName);
@@ -2026,7 +2094,7 @@
                         if (email) {
                             await core.handlePasswordReset(email);
                         } else {
-                            alert("请输入邮箱地址。");
+                            utils.showAlert("请输入邮箱地址。");
                         }
                     }
                 },
@@ -2058,11 +2126,11 @@
                         console.log("LeanCloud 初始化成功，已启用云同步模式。");
                     } else {
                         console.error("错误：LeanCloud App ID/Key 未配置。请在JS代码中填入您自己的密钥。");
-                        alert("错误：云同步服务未配置，请检查代码中的 LEANCLOUD_CONFIG。")
+                        utils.showAlert("错误：云同步服务未配置，请检查代码中的 LEANCLOUD_CONFIG。", "配置错误")
                     }
                 } catch (error) {
                      console.error("LeanCloud 初始化失败:", error);
-                     alert("LeanCloud 初始化失败，请检查您的网络或配置。");
+                     utils.showAlert("LeanCloud 初始化失败，请检查您的网络或配置。", "初始化失败");
                 }
 
 
@@ -2118,7 +2186,7 @@
                     e.stopPropagation();
                     const isActive = dom.body.classList.toggle('edit-mode-active');
                     e.target.classList.toggle('active', isActive);
-                    e.target.textContent = isActive ? '完成' : '编辑';
+e.target.textContent = isActive ? '完成' : '编辑';
                     dom.sizeSliderPanel.classList.toggle('visible', isActive);
                 });
                 dom.importFileInput.addEventListener('change', core.importData);
