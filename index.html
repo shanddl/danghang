@@ -2380,7 +2380,7 @@
                 // --- 绑定事件监听 ---
                 dom.body.addEventListener('dblclick', handlers.bodyDblClick);
                 dom.searchForm.addEventListener('submit', handlers.searchSubmit);
-                dom.homeBtn.addEventListener('click', () => updateView('initial'));
+                dom.homeBtn.addEventListener('click', () => render.view('initial')); // <--- 问题修复在这里
                 dom.weatherToggleBtn.addEventListener('click', core.toggleWeatherPanel);
                 dom.editModeBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
