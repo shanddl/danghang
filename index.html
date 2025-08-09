@@ -142,9 +142,15 @@
         }
 
         .search-container {
-            position: relative; display: flex; align-items: center; width: 100%;
-            background: var(--card-bg); border-radius: 24px; border: 1px solid var(--border-color);
-            box-shadow: 0 2px 6px var(--shadow-color); transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            align-items: center;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 6px var(--shadow-color);
+            transition: all 0.3s ease;
         }
         .search-container:hover, .search-container:focus-within {
             border-color: var(--blue); 
@@ -241,6 +247,45 @@
         #clock {
             flex-shrink: 0; font-size: 16px; font-weight: 500; color: var(--text-secondary);
             padding: 0 16px; margin-left: 10px; letter-spacing: 1px;
+        }
+
+        #search-suggestions-box {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 130;
+        }
+
+        .suggestion-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .suggestion-item .remove-history-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            display: none;
+            line-height: 1;
+            font-size: 16px;
+        }
+
+        .suggestion-item:hover .remove-history-btn {
+            display: block;
+        }
+
+        .suggestion-item .remove-history-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
         }
 
         /* * ================================================
@@ -750,7 +795,7 @@
                          <span id="selected-category-content"></span>
                          <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"></path></svg>
                      </button>
-                     <div id="dropdown-menu" class="dropdown-menu" role="menu"></div>
+                     <div id="dropdown-menu" class="dropdown-menu"></div>
                  </div>
                  <form id="search-form" role="search">
                      <input id="search-input" placeholder="聚合搜索软件…" autocomplete="off">
@@ -758,6 +803,7 @@
                         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
                      </button>
                  </form>
+                 <div id="search-suggestions-box" class="dropdown-menu"></div>
              </div>
              <div id="clock"></div>
               <div class="ai-btn-container">
@@ -1008,11 +1054,11 @@
             // --- 静态配置 ---
             const STATIC_CONFIG = {
                 SEARCH_ENGINES: {
-                    'software_agg': { mode: 'AGGREGated_LIST', name: '软件聚合', homeUrl: 'https://www.423down.com', sources: [ { name: '423Down', searchUrl: 'https://www.423down.com/?s={query}'}, { name: 'mefcl', searchUrl: 'https://www.mefcl.com/?s={query}'}, { name: '绿软小站', searchUrl: 'https://search.gndown.com/?s={query}'}, { name: 'OSSSR', searchUrl: 'https://www.osssr.com/search/{query}'} ] },
+                    'software_agg': { mode: 'AGGREGATED_LIST', name: '软件聚合', homeUrl: 'https://www.423down.com', sources: [ { name: '423Down', searchUrl: 'https://www.423down.com/?s={query}'}, { name: 'mefcl', searchUrl: 'https://www.mefcl.com/?s={query}'}, { name: '绿软小站', searchUrl: 'https://search.gndown.com/?s={query}'}, { name: 'OSSSR', searchUrl: 'https://www.osssr.com/search/{query}'} ] },
                     'metaso':   { mode: 'EXTERNAL', name: '秘塔搜索', searchUrl: 'https://metaso.cn/?q={query}' },
                     'script':   { mode: 'IFRAME', name: '脚本', homeUrl: 'https://gf.qytechs.cn/zh-CN', searchUrl: 'https://gf.qytechs.cn/zh-CN/search?q={query}' },
                     'movie':    { mode: 'IFRAME', name: '影视', homeUrl: 'https://www.27tv.cc/', searchUrl: 'https://www.27tv.cc/vodsearch/-------------.html?wd={query}' },
-                    'free':     { mode: 'EXTERNAL', name: '聚合搜索', searchUrl: 'https://so.ddns-ip.net/search?q={query}' },
+                    'free':     { mode: 'EXTERNAL', name: '自由搜索', searchUrl: 'https://so.ddns-ip.net/search?q={query}', iconUrl: 'https://www.baidu.com/favicon.ico' },
                     'extension':{ mode: 'IFRAME', name: 'Crx搜搜', homeUrl: 'https://www.crxsoso.com/', searchUrl: 'https://www.crxsoso.com/search?q={query}' },
                     'music':    { mode: 'IFRAME', name: '音乐', homeUrl: 'https://pjmp3.com/', searchUrl: 'https://pjmp3.com/music/search?keyword={query}' }
                 },
@@ -1035,6 +1081,7 @@
                     navCategories: ['社交', '购物', '工具'],
                     navShape: 'square',
                     navSize: 100,
+                    searchHistory: [],
                 },
                 WEATHER_ICONS: {
                     "晴": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="color: #fbbc05;"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41l1.06 1.06c.39.39 1.02.39 1.41 0s.39-1.02 0-1.41L5.99 4.58zm12.02 12.02c-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41l1.06 1.06c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41l-1.06-1.06zM4.58 18.01c.39.39.39 1.02 0 1.41-.39.39-1.02.39-1.41 0l-1.06-1.06c-.39-.39-.39-1.02 0-1.41s1.02-.39 1.41 0l1.06 1.06zm12.02-12.02c.39.39.39 1.02 0 1.41-.39.39-1.02-.39-1.41 0l-1.06-1.06c-.39-.39-.39-1.02 0-1.41s1.02-.39 1.41 0l1.06 1.06z"/></svg>`,
@@ -1043,7 +1090,7 @@
                 },
                 THEMES: ['aurora', 'sunset', 'ocean', 'neon', 'forest', 'cosmic'],
                 CONSTANTS: {
-                    DEFAULT_SEARCH_CATEGORY: 'software_agg',
+                    DEFAULT_SEARCH_CATEGORY: 'free',
                     ALL_CATEGORIES: '全部',
                     NEW_CATEGORY_VALUE: '--new--',
                     LOCAL_STORAGE_KEY: 'localUserData',
@@ -1089,6 +1136,7 @@
                 'forgot-password-link', 'forgot-password-modal', 'forgot-password-form',
                 'search-results-container', 'search-stats', 'search-results-list',
                 'custom-alert-modal', 'custom-alert-title', 'custom-alert-message',
+                'search-suggestions-box'
             ];
 
             // =================================================================
@@ -1121,6 +1169,10 @@
                     } else {
                         // 从 localStorage 加载数据
                         core.loadLocalData();
+                    }
+                    // 确保 searchHistory 是一个数组
+                    if (!Array.isArray(state.userData.searchHistory)) {
+                        state.userData.searchHistory = [];
                     }
                     core.applyAllSettings();
                 },
@@ -1258,20 +1310,52 @@
                 
                 // --- 天气 ---
                 fetchWeatherData: async () => {
+                    let geoData;
                     try {
-                        // 1. 获取 IP 地址信息
-                        const geoResponse = await fetch('https://ipapi.co/json/');
-                        if (!geoResponse.ok) throw new Error('无法获取地理位置信息');
-                        const geoData = await geoResponse.json();
-                        const { city, latitude, longitude } = geoData;
+                        // 优先尝试中文API
+                        const geoResponse = await fetch('https://ip-api.com/json/?lang=zh-CN');
+                        if (!geoResponse.ok) throw new Error('主API网络请求失败');
+                        const data = await geoResponse.json();
+                        if (data.status !== 'success') throw new Error('主API返回错误: ' + data.message);
+                        
+                        geoData = {
+                            province: data.regionName,
+                            city: data.city,
+                            lat: data.lat,
+                            lng: data.lon
+                        };
 
-                        // 2. 使用经纬度获取天气信息
-                        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+                    } catch (error1) {
+                        console.warn("主地理位置API失败，尝试备用API:", error1);
+                        try {
+                            // 备用API
+                            const geoResponse = await fetch('https://ipinfo.io/json');
+                            if (!geoResponse.ok) throw new Error('备用API网络请求失败');
+                            const data = await geoResponse.json();
+                            const [lat, lng] = data.loc.split(',');
+                            geoData = {
+                                province: data.region || '',
+                                city: data.city || '',
+                                lat: lat,
+                                lng: lng
+                            };
+                        } catch (error2) {
+                            console.error("所有地理位置API均失败:", error2);
+                            return {
+                                location: "无法加载位置",
+                                current: { temp: 'N/A', condition: "未知", wind: "N/A", humidity: "N/A" },
+                                forecast: Array(5).fill({ day: "N/A", condition: "未知", temp: "N/A" })
+                            };
+                        }
+                    }
+
+                    try {
+                        const { lat, lng, province, city } = geoData;
+                        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
                         const weatherResponse = await fetch(weatherUrl);
                         if (!weatherResponse.ok) throw new Error('无法获取天气数据');
                         const weatherData = await weatherResponse.json();
 
-                        // 3. 格式化数据以匹配渲染函数
                         const getForecastDays = () => {
                             const dayNames = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
                             const today = new Date();
@@ -1294,21 +1378,19 @@
                         });
 
                         return {
-                            location: city || "未知位置",
+                            location: `${province} ${city}`.trim() || "未知位置",
                             current: {
                                 temp: Math.round(weatherData.current.temperature_2m),
                                 condition: utils.translateWeatherCode(weatherData.current.weather_code),
                                 wind: `风速 ${weatherData.current.wind_speed_10m} km/h`,
                                 humidity: `${weatherData.current.relative_humidity_2m}%`
                             },
-                            forecast: formattedForecast.slice(0, 5) // 确保只返回5天
+                            forecast: formattedForecast.slice(0, 5)
                         };
-
-                    } catch (error) {
-                        console.error("获取天气数据失败:", error);
-                         // 返回一个明确的错误或备用数据
+                    } catch (weatherError) {
+                        console.error("获取天气数据失败 (已获取位置):", weatherError);
                         return {
-                            location: "无法加载",
+                            location: geoData.city || "天气信息无法加载",
                             current: { temp: 'N/A', condition: "未知", wind: "N/A", humidity: "N/A" },
                             forecast: Array(5).fill({ day: "N/A", condition: "未知", temp: "N/A" })
                         };
@@ -1336,6 +1418,19 @@
                 // --- 其他核心功能 ---
                 performSearch: (query) => {
                     if (!query) return;
+
+                    // --- Add to search history ---
+                    if (!Array.isArray(state.userData.searchHistory)) {
+                        state.userData.searchHistory = [];
+                    }
+                    state.userData.searchHistory = state.userData.searchHistory.filter(item => item !== query);
+                    state.userData.searchHistory.unshift(query);
+                    if (state.userData.searchHistory.length > 10) {
+                        state.userData.searchHistory.pop();
+                    }
+                    core.saveUserData();
+                    // --- End of history logic ---
+
                     const config = STATIC_CONFIG.SEARCH_ENGINES[state.currentSearchCategory];
                     if (!config) return;
                     const encodedQuery = encodeURIComponent(query);
@@ -1426,7 +1521,7 @@
                         item.href = '#';
                         item.className = 'dropdown-item';
                         item.dataset.category = key;
-                        const iconUrl = `https://www.google.com/s2/favicons?domain=${new URL(config.homeUrl || config.searchUrl).hostname}&sz=16`;
+                        const iconUrl = config.iconUrl || `https://www.google.com/s2/favicons?domain=${new URL(config.homeUrl || config.searchUrl).hostname}&sz=16`;
                         item.innerHTML = `
                             <img src="${iconUrl}" class="dropdown-item-favicon" alt="${config.name} icon" onerror="this.src='https://placehold.co/16x16/e8eaed/e8eaed?text=${config.name.charAt(0)}'">
                             <span>${config.name}</span>`;
@@ -1748,13 +1843,52 @@
                         `;
                         dom.searchResultsList.appendChild(div);
                     });
-                }
+                },
+
+                suggestions: (items, type) => {
+                    if (!items || items.length === 0) {
+                        dom.searchSuggestionsBox.classList.remove('visible');
+                        return;
+                    }
+
+                    const fragment = document.createDocumentFragment();
+                    items.forEach((item, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'dropdown-item suggestion-item';
+                        div.dataset.value = item;
+
+                        const textSpan = document.createElement('span');
+                        textSpan.textContent = item;
+                        div.appendChild(textSpan);
+
+                        if (type === 'history') {
+                            const removeBtn = document.createElement('button');
+                            removeBtn.className = 'remove-history-btn';
+                            removeBtn.innerHTML = '&times;';
+                            removeBtn.title = '删除此条记录';
+                            removeBtn.dataset.index = index;
+                            div.appendChild(removeBtn);
+                        }
+                        fragment.appendChild(div);
+                    });
+
+                    dom.searchSuggestionsBox.innerHTML = '';
+                    dom.searchSuggestionsBox.appendChild(fragment);
+                    dom.searchSuggestionsBox.classList.add('visible');
+                },
             };
 
             // =================================================================
             // == 6. 事件处理 (Event Handlers)
             // =================================================================
             const utils = {
+                debounce: (func, delay) => {
+                    let timeout;
+                    return (...args) => {
+                        clearTimeout(timeout);
+                        timeout = setTimeout(() => func.apply(this, args), delay);
+                    };
+                },
                 showConfirmModal: (message, onConfirm) => {
                     dom.confirmModalMessage.textContent = message;
                     dom.confirmModal.classList.add('visible');
@@ -1888,6 +2022,26 @@
             };
 
             const handlers = {
+                fetchBaiduSuggestions: (query) => {
+                    if (window.suggestionScript) {
+                        document.body.removeChild(window.suggestionScript);
+                    }
+                    const script = document.createElement('script');
+                    window.suggestionScript = script;
+                    const encodedQuery = encodeURIComponent(query);
+                    
+                    window.handleBaiduSuggestions = (data) => {
+                        const suggestions = data.s || [];
+                        render.suggestions(suggestions, 'suggestion');
+                        if (script.parentNode) {
+                            script.parentNode.removeChild(script);
+                        }
+                        delete window.handleBaiduSuggestions;
+                        delete window.suggestionScript;
+                    };
+                    script.src = `https://suggestion.baidu.com/su?wd=${encodedQuery}&cb=handleBaiduSuggestions`;
+                    document.body.appendChild(script);
+                },
                 bodyDblClick: (e) => {
                     const isCurtainAction = e.target.closest('.nav-item') || e.target.closest('#dynamic-island-wrapper');
                     if (dom.body.classList.contains('edit-mode-active') && !isCurtainAction) return;
@@ -1913,6 +2067,10 @@
                     const dropdownToggle = e.target.closest('[aria-haspopup="true"]');
                     const dropdownItem = e.target.closest('.dropdown-item');
                     const actionTarget = e.target.closest('[data-action]');
+
+                    if (!e.target.closest('.search-container')) {
+                        dom.searchSuggestionsBox.classList.remove('visible');
+                    }
 
                     if (dropdownToggle) {
                         e.stopPropagation();
@@ -2105,6 +2263,8 @@
                     }
                 },
             };
+            
+            handlers.debouncedFetchSuggestions = utils.debounce(handlers.fetchBaiduSuggestions, 250);
 
             // =================================================================
             // == 7. 初始化 (Initialization)
@@ -2186,7 +2346,7 @@
                     e.stopPropagation();
                     const isActive = dom.body.classList.toggle('edit-mode-active');
                     e.target.classList.toggle('active', isActive);
-e.target.textContent = isActive ? '完成' : '编辑';
+                    e.target.textContent = isActive ? '完成' : '编辑';
                     dom.sizeSliderPanel.classList.toggle('visible', isActive);
                 });
                 dom.importFileInput.addEventListener('change', core.importData);
@@ -2220,6 +2380,46 @@ e.target.textContent = isActive ? '完成' : '编辑';
                     e.preventDefault();
                     dom.authModal.classList.remove('visible');
                     dom.forgotPasswordModal.classList.add('visible');
+                });
+
+                dom.searchInput.addEventListener('focus', () => {
+                    if (!dom.searchInput.value.trim() && state.userData.searchHistory.length > 0) {
+                        render.suggestions(state.userData.searchHistory, 'history');
+                    }
+                });
+
+                dom.searchInput.addEventListener('input', () => {
+                    const query = dom.searchInput.value.trim();
+                    if (query) {
+                        handlers.debouncedFetchSuggestions(query);
+                    } else {
+                        if (state.userData.searchHistory.length > 0) {
+                            render.suggestions(state.userData.searchHistory, 'history');
+                        } else {
+                            dom.searchSuggestionsBox.classList.remove('visible');
+                        }
+                    }
+                });
+
+                dom.searchSuggestionsBox.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const target = e.target;
+
+                    if (target.classList.contains('remove-history-btn')) {
+                        const index = parseInt(target.dataset.index, 10);
+                        state.userData.searchHistory.splice(index, 1);
+                        core.saveUserData();
+                        render.suggestions(state.userData.searchHistory, 'history');
+                        return;
+                    }
+
+                    const item = target.closest('.suggestion-item');
+                    if (item) {
+                        const value = item.dataset.value;
+                        dom.searchInput.value = value;
+                        dom.searchSuggestionsBox.classList.remove('visible');
+                        core.performSearch(value);
+                    }
                 });
             };
 
