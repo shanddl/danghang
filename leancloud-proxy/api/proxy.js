@@ -1,31 +1,27 @@
-// 文件路徑: /api/proxy.js
+// 檔案路徑: /api/proxy.js
 
 export default async function handler(req, res) {
   // --- START: 安全与配置 ---
-
-  // 您的 LeanCloud App ID 和 App Key
-  // 建議: 為了安全，您可以將這些值設定在 Vercel 的環境變數中
   const APP_ID = process.env.LEANCLOUD_APP_ID || '7Vo87apph5SCxcw1KFnR2OFC-MdYXbMMI';
   const APP_KEY = process.env.LEANCLOUD_APP_KEY || '1nYVUVFSZkXdu6yYO3G0V1jz';
-  
-  // 您的 LeanCloud API 基礎 URL
   const API_BASE_URL = 'https://7vo87app.api.lncldglobal.com';
-
-  // 您的擴充功能 Origin，用於設定 CORS 響應頭
   const allowedOrigin = 'chrome-extension://ldddaemdhadjigcfcingdacbodbnhdlc';
-
   // --- END: 安全与配置 ---
 
-  // 設定 CORS 響應頭，只允許您的擴充功能訪問此代理
+  // --- START: CORS 標頭設定 (更強健的版本) ---
+  // 無論是什麼請求，都先設定好 CORS 標頭
   res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-LC-Session');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-LC-Id, X-LC-Key, X-LC-Session');
+  // --- END: CORS 標頭設定 ---
 
-  // 處理瀏覽器的 OPTIONS "預檢"請求
+  // 如果是預檢請求 (OPTIONS)，直接回覆 204 No Content，表示允許
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.status(204).end();
+    return;
   }
 
+  // 後續的程式碼與之前相同
   try {
     const { targetPath, method, body, sessionToken } = req.body;
 
@@ -56,7 +52,6 @@ export default async function handler(req, res) {
 
     const leancloudResponse = await fetch(leancloudUrl, fetchOptions);
     
-    // 嘗試解析 JSON，如果失敗則返回文字
     let responseData;
     try {
         responseData = await leancloudResponse.json();
