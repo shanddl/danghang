@@ -2006,11 +2006,9 @@
                         return null;
                     }
                     try {
-                        // [FIXED] Safely parse local storage data
                         return JSON.parse(localData);
                     } catch (e) {
                         console.error("解析本地存储数据失败:", e);
-                        // Return null if data is corrupted, so the app can fall back to defaults
                         return null;
                     }
                 },
@@ -2064,8 +2062,17 @@
                     if (!dataToLoad) {
                         state.userData = defaultData;
                     } else {
-                        state.userData = { ...defaultData, ...dataToLoad };
+                        // [FIXED] Start with a deep copy of default data to ensure all keys exist
+                        state.userData = JSON.parse(JSON.stringify(defaultData));
+                        
+                        // Overwrite with user's top-level settings
+                        Object.keys(dataToLoad).forEach(key => {
+                            if (!Array.isArray(dataToLoad[key])) {
+                                state.userData[key] = dataToLoad[key];
+                            }
+                        });
 
+                        // Repair navItems
                         if (dataToLoad.navItems && Array.isArray(dataToLoad.navItems)) {
                             state.userData.navItems = dataToLoad.navItems.map(item => ({
                                 name: item.name || '无标题',
@@ -2073,29 +2080,30 @@
                                 icon: item.icon || `https://icon.bqb.cool/?url=${utils.purifyUrl(item.url || '')}`,
                                 category: item.category || '未分类'
                             }));
-                        } else {
-                            state.userData.navItems = defaultData.navItems;
                         }
 
+                        // [FIXED] Intelligently merge search engines
                         if (dataToLoad.searchEngines && Array.isArray(dataToLoad.searchEngines)) {
-                            state.userData.searchEngines = dataToLoad.searchEngines.map((engine, index) => ({
-                                id: engine.id || `engine_${Date.now() + index}`,
-                                name: engine.name || '未知引擎',
-                                url: engine.url || defaultData.searchEngines[0].url,
-                                icon: engine.icon || defaultData.searchEngines[0].icon
-                            }));
-                        } else {
-                            state.userData.searchEngines = defaultData.searchEngines;
+                            const userEngines = dataToLoad.searchEngines;
+                            const defaultEngines = defaultData.searchEngines;
+
+                            defaultEngines.forEach(defaultEngine => {
+                                if (!userEngines.some(userEngine => userEngine.id === defaultEngine.id)) {
+                                    userEngines.push(defaultEngine);
+                                }
+                            });
+                            state.userData.searchEngines = userEngines;
                         }
                         
+                        // Handle other arrays
+                        state.userData.navCategories = dataToLoad.navCategories && Array.isArray(dataToLoad.navCategories) ? dataToLoad.navCategories : defaultData.navCategories;
+                        state.userData.searchHistory = dataToLoad.searchHistory && Array.isArray(dataToLoad.searchHistory) ? dataToLoad.searchHistory : defaultData.searchHistory;
+                        state.userData.searchScopes = dataToLoad.searchScopes && Array.isArray(dataToLoad.searchScopes) ? dataToLoad.searchScopes : defaultData.searchScopes;
+
+                        // Final check on active engine
                         if (!state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId)) {
                             state.userData.activeSearchEngineId = state.userData.searchEngines[0]?.id || defaultData.activeSearchEngineId;
                         }
-
-                        if (!Array.isArray(state.userData.searchHistory)) state.userData.searchHistory = [];
-                        if (!Array.isArray(state.userData.navCategories)) state.userData.navCategories = defaultData.navCategories;
-                        if (!Array.isArray(state.userData.searchScopes)) state.userData.searchScopes = [];
-
                     }
                     
                     if (!dataToLoad && !state.isLoggedIn) {
