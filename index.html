@@ -2026,91 +2026,90 @@
             // =================================================================
             const core = {
                 loadUserData: async () => {
-                    let dataToLoad = null;
-                    if (state.isLoggedIn && state.currentUser) {
-                        console.log("从 Supabase 加载用户数据...");
-                        try {
-                            const { data, error } = await supabase
-                                .from('user_configs')
-                                .select('data')
-                                .eq('user_id', state.currentUser.id)
-                                .single();
+                    try {
+                        let dataToLoad = null;
+                        if (state.isLoggedIn && state.currentUser) {
+                            console.log("从 Supabase 加载用户数据...");
+                            try {
+                                const { data, error } = await supabase
+                                    .from('user_configs')
+                                    .select('data')
+                                    .eq('user_id', state.currentUser.id)
+                                    .single();
 
-                            if (error && error.code !== 'PGRST116') {
-                                throw error;
+                                if (error && error.code !== 'PGRST116') {
+                                    throw error;
+                                }
+                                if (data) {
+                                    dataToLoad = data.data;
+                                    console.log("成功从 Supabase 加载数据。");
+                                    await storage.set(dataToLoad);
+                                } else {
+                                    console.log("Supabase 中无用户数据，使用默认数据初始化。");
+                                    dataToLoad = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                                    await core.saveUserData(dataToLoad);
+                                }
+                            } catch (error) {
+                                console.error("从 Supabase 加载数据失败，将使用本地数据:", error);
+                                dataToLoad = await storage.get();
                             }
-                            if (data) {
-                                dataToLoad = data.data;
-                                console.log("成功从 Supabase 加载数据。");
-                                await storage.set(dataToLoad);
-                            } else {
-                                console.log("Supabase 中无用户数据，使用默认数据初始化。");
-                                dataToLoad = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                                await core.saveUserData(dataToLoad);
-                            }
-                        } catch (error) {
-                             console.error("从 Supabase 加载数据失败，将使用本地数据:", error);
-                             dataToLoad = await storage.get();
-                        }
-                    } else {
-                        console.log("从本地存储加载数据...");
-                        dataToLoad = await storage.get();
-                    }
-
-                    const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-
-                    if (!dataToLoad) {
-                        state.userData = defaultData;
-                    } else {
-                        // [FIXED] Start with a deep copy of default data to ensure all keys exist
-                        state.userData = JSON.parse(JSON.stringify(defaultData));
-                        
-                        // Overwrite with user's top-level settings
-                        Object.keys(dataToLoad).forEach(key => {
-                            if (!Array.isArray(dataToLoad[key])) {
-                                state.userData[key] = dataToLoad[key];
-                            }
-                        });
-
-                        // Repair navItems
-                        if (dataToLoad.navItems && Array.isArray(dataToLoad.navItems)) {
-                            state.userData.navItems = dataToLoad.navItems.map(item => ({
-                                name: item.name || '无标题',
-                                url: item.url || '#',
-                                icon: item.icon || `https://icon.bqb.cool/?url=${utils.purifyUrl(item.url || '')}`,
-                                category: item.category || '未分类'
-                            }));
+                        } else {
+                            console.log("从本地存储加载数据...");
+                            dataToLoad = await storage.get();
                         }
 
-                        // [FIXED] Intelligently merge search engines
-                        if (dataToLoad.searchEngines && Array.isArray(dataToLoad.searchEngines)) {
-                            const userEngines = dataToLoad.searchEngines;
-                            const defaultEngines = defaultData.searchEngines;
+                        const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
 
-                            defaultEngines.forEach(defaultEngine => {
-                                if (!userEngines.some(userEngine => userEngine.id === defaultEngine.id)) {
-                                    userEngines.push(defaultEngine);
+                        if (!dataToLoad || typeof dataToLoad !== 'object') {
+                            state.userData = defaultData;
+                        } else {
+                            state.userData = JSON.parse(JSON.stringify(defaultData));
+                            
+                            Object.keys(state.userData).forEach(key => {
+                                if (dataToLoad[key] !== undefined && !Array.isArray(dataToLoad[key])) {
+                                    state.userData[key] = dataToLoad[key];
                                 }
                             });
-                            state.userData.searchEngines = userEngines;
+
+                            if (Array.isArray(dataToLoad.navItems)) {
+                                state.userData.navItems = dataToLoad.navItems.map(item => ({
+                                    ...defaultData.navItems[0],
+                                    ...item
+                                }));
+                            }
+
+                            if (Array.isArray(dataToLoad.searchEngines)) {
+                                const userEngines = dataToLoad.searchEngines;
+                                const defaultEngines = defaultData.searchEngines;
+                                const finalEngines = [...userEngines];
+                                defaultEngines.forEach(defaultEngine => {
+                                    if (!userEngines.some(userEngine => userEngine.id === defaultEngine.id)) {
+                                        finalEngines.push(defaultEngine);
+                                    }
+                                });
+                                state.userData.searchEngines = finalEngines;
+                            }
+                            
+                            state.userData.navCategories = Array.isArray(dataToLoad.navCategories) ? dataToLoad.navCategories : defaultData.navCategories;
+                            state.userData.searchHistory = Array.isArray(dataToLoad.searchHistory) ? dataToLoad.searchHistory : defaultData.searchHistory;
+                            state.userData.searchScopes = Array.isArray(dataToLoad.searchScopes) ? dataToLoad.searchScopes : defaultData.searchScopes;
+
+                            if (!state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId)) {
+                                state.userData.activeSearchEngineId = state.userData.searchEngines[0]?.id || defaultData.activeSearchEngineId;
+                            }
                         }
                         
-                        // Handle other arrays
-                        state.userData.navCategories = dataToLoad.navCategories && Array.isArray(dataToLoad.navCategories) ? dataToLoad.navCategories : defaultData.navCategories;
-                        state.userData.searchHistory = dataToLoad.searchHistory && Array.isArray(dataToLoad.searchHistory) ? dataToLoad.searchHistory : defaultData.searchHistory;
-                        state.userData.searchScopes = dataToLoad.searchScopes && Array.isArray(dataToLoad.searchScopes) ? dataToLoad.searchScopes : defaultData.searchScopes;
-
-                        // Final check on active engine
-                        if (!state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId)) {
-                            state.userData.activeSearchEngineId = state.userData.searchEngines[0]?.id || defaultData.activeSearchEngineId;
+                        if (!dataToLoad && !state.isLoggedIn) {
+                            await core.saveUserData();
                         }
-                    }
-                    
-                    if (!dataToLoad && !state.isLoggedIn) {
-                        await core.saveUserData();
-                    }
 
-                    core.applyAllSettings();
+                        core.applyAllSettings();
+                    } catch (e) {
+                        console.error("加载用户数据时发生严重错误。重置为默认设置。", e);
+                        state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                        core.applyAllSettings();
+                        utils.showAlert("加载您的个人设置时遇到问题，已为您加载默认设置。", "加载错误");
+                    }
                 },
 
                 saveUserData: async (dataToSave = state.userData) => {
@@ -4152,9 +4151,17 @@
                         if (event === 'SIGNED_OUT') {
                             await storage.set(STATIC_CONFIG.DEFAULT_USER_DATA);
                         }
-
-                        render.userActions();
-                        await core.loadUserData();
+                        
+                        try {
+                            render.userActions();
+                            await core.loadUserData();
+                        } catch (e) {
+                            console.error("认证状态变更后加载数据失败:", e);
+                            // Fallback to a default state even if loading fails
+                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                            core.applyAllSettings();
+                            utils.showAlert("加载用户数据时发生错误，已显示默认设置。");
+                        }
                     });
                 } else {
                     await core.loadUserData();
