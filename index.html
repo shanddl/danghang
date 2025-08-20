@@ -7,7 +7,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- 移除了 LeanCloud SDK, 替换为 Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* * ================================================
@@ -193,7 +192,8 @@
             width: 100%; height: 100%; border-radius: 50%; 
             display: flex; align-items: center; justify-content: center; margin-right: 0;
             font-weight: 500;
-            color: var(--text-primary);
+            color: var(--bg);
+            background: linear-gradient(45deg, #8ab4f8, #34a853);
         }
         .login-indicator {
             width: 32px; height: 32px; border-radius: 50%; 
@@ -270,7 +270,28 @@
             right: 0;
             left: auto;
             transform-origin: top right;
+            min-width: 200px;
         }
+        .user-info {
+            pointer-events: none;
+            padding: 10px 14px;
+        }
+        .user-info-name {
+            font-weight: 500;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .user-info-email {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         #add-menu {
             bottom: calc(100% + 8px);
             top: auto;
@@ -1097,12 +1118,30 @@
             transform: scale(1.05);
             visibility: hidden;
             transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1), transform 2.5s cubic-bezier(0.4, 0, 0.2, 1);
+            --wallpaper-url: ''; /* 新增：用于交叉淡入的CSS变量 */
         }
         #wallpaper-container.visible {
             opacity: 1;
             transform: scale(1);
             visibility: visible;
         }
+
+        /* 新增：用于交叉淡入效果的伪元素 */
+        #wallpaper-container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: var(--wallpaper-url-old);
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 0.75s ease-in-out;
+            z-index: -1;
+        }
+        #wallpaper-container.is-loading::before {
+            opacity: 1;
+        }
+
 
         body.theater-mode-active > #content-wrapper,
         body.theater-mode-active > #bottom-dock-wrapper {
@@ -1167,21 +1206,33 @@
             height: 24px;
             fill: currentColor;
         }
+        
+        /* 新增：水印按钮激活状态 */
+        .wallpaper-btn#toggle-watermark-btn.active {
+            background-color: rgba(138, 180, 248, 0.3);
+            color: var(--blue);
+        }
 
         #wallpaper-info {
             position: absolute;
             bottom: 20px;
-            left: 20px;
+            right: 20px; /* 改为右下角 */
             color: white;
-            font-size: 14px;
-            text-shadow: 0 1px 5px rgba(0,0,0,0.7);
+            font-size: 13px;
+            background-color: rgba(0,0,0,0.3);
+            padding: 4px 10px;
+            border-radius: 8px;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
             max-width: 50%;
             opacity: 0;
             transition: opacity 0.5s ease;
             z-index: 52;
+            text-align: right;
+            visibility: hidden;
         }
-        #wallpaper-container.visible #wallpaper-info {
+        #wallpaper-container.visible #wallpaper-info.visible {
             opacity: 1;
+            visibility: visible;
         }
 
         .wallpaper-category-container {
@@ -1790,7 +1841,10 @@
             <button id="next-wallpaper-btn" class="wallpaper-btn" title="下一张">
                 <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"></path></svg>
             </button>
-            <!-- 移除了壁纸分类按钮 -->
+            <!-- 新增：水印开关按钮 -->
+            <button id="toggle-watermark-btn" class="wallpaper-btn" title="显示/隐藏信息">
+                <svg viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path></svg>
+            </button>
             <button id="download-wallpaper-btn" class="wallpaper-btn" title="下载">
                 <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"></path></svg>
             </button>
@@ -1803,7 +1857,7 @@
             'use strict';
 
             // =================================================================
-            // Supabase 配置 (请替换为您自己的凭据)
+            // Supabase 配置 (已为您填好)
             // =================================================================
             const SUPABASE_CONFIG = {
                 url: "https://efksqykktzdvxpflivhb.supabase.co", 
@@ -1844,22 +1898,25 @@
                     searchEngines: [
                         { id: 'engine_ddns', name: 'DDNS-IP', url: 'https://so.ddns-ip.net/?q={query}', icon: 'https://so.ddns-ip.net/favicon.ico' },
                         { id: 'engine_google', name: 'Google', url: 'https://www.google.com/search?q={query}', icon: 'https://www.google.com/favicon.ico' },
+                        { id: 'engine_bing', name: 'Bing', url: 'https://www.bing.com/search?q={query}', icon: 'https://www.bing.com/favicon.ico' },
                         { id: 'engine_baidu', name: '百度', url: 'https://www.baidu.com/s?wd={query}', icon: 'https://www.baidu.com/favicon.ico' },
                         { id: 'engine_sogou', name: '搜狗', url: 'https://www.sogou.com/web?query={query}', icon: 'https://www.sogou.com/favicon.ico' }
                     ],
                     activeSearchEngineId: 'engine_ddns',
-                    theme: 'auto', // 新增: 保存主题设置
-                    isDockPinned: false, // 新增: 保存Dock栏钉选状态
+                    theme: 'auto', 
+                    isDockPinned: false, 
+                    showWatermark: true, // 新增：保存水印显示状态
                 },
                 THEMES: ['aurora', 'sunset', 'ocean', 'neon', 'forest', 'cosmic'],
+                // 更新：添加更多高清壁纸源
                 WALLPAPER_SOURCES: {
-                    'bing': { name: '必应每日' },
-                    'wallpaperscraft': { name: 'WallpapersCraft' },
-                    'unsplash': { name: 'Unsplash' },
-                    'wallhaven': { name: 'Wallhaven' },
-                    'ghser': { name: '随机精选' },
-                    'btstu': { name: '搏天随机' },
-                    'anime': { name: '随机动漫' },
+                    'bing': { name: '必应每日', type: 'bing_api' },
+                    'unsplash_landscape': { name: '随机风景', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?landscape,nature' },
+                    'unsplash_city': { name: '随机城市', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?city,architecture' },
+                    'unsplash_tech': { name: '随机科技', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?technology,abstract' },
+                    'unsplash_animal': { name: '随机动物', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?animal,wildlife' },
+                    'btstu_fengjing': { name: '风景壁纸', type: 'btstu', url: 'https://api.btstu.cn/sjbz/api.php?lx=fengjing&format=json' },
+                    'btstu_dongman': { name: '动漫壁纸', type: 'btstu', url: 'https://api.btstu.cn/sjbz/api.php?lx=dongman&format=json' }
                 },
                 CONSTANTS: {
                     ALL_CATEGORIES: '全部',
@@ -1889,6 +1946,8 @@
                 activeWallpaperGalleryCategory: 'all',
                 currentWallpaperIndex: 0,
                 wallpaperCache: {}, 
+                nextWallpaper: new Image(), // 新增：用于预加载下一张壁纸
+                isWallpaperLoading: false, // 新增：壁纸加载状态锁
                 galleryUrlCache: new Set(),
                 isSlideshowPlaying: false,
                 slideshowInterval: null,
@@ -1923,7 +1982,7 @@
                 'context-menu', 'main-context-menu',
                 'wallpaper-container', 'wallpaper-controls', 'prev-wallpaper-btn',
                 'play-pause-wallpaper-btn', 'next-wallpaper-btn', 'play-icon', 'pause-icon',
-                'download-wallpaper-btn', 'wallpaper-info',
+                'download-wallpaper-btn', 'wallpaper-info', 'toggle-watermark-btn',
                 'wallpaper-gallery-trigger', 'wallpaper-gallery-panel', 'wallpaper-gallery-grid', 'wallpaper-gallery-categories-container',
                 'gallery-loader',
                 'manage-scopes-modal', 'manage-scopes-form', 'scope-list', 'scope-form-title',
@@ -2071,6 +2130,7 @@
                     render.searchScopeSelector();
                     render.activeScopeTag();
                     render.searchEngineSwitcher();
+                    render.watermark(); // 应用水印初始状态
                 },
 
                 register: async (email, password) => {
@@ -2256,49 +2316,103 @@
                     dom.importFileInput.click();
                 },
                 
+                // 优化后的壁纸获取与显示逻辑
                 fetchAndSetWallpaper: async (index) => {
-                    const category = state.currentWallpaperCategory;
-                    const cacheKey = `${category}-${index}`;
-
-                    if (state.wallpaperCache[cacheKey]) {
-                        const data = state.wallpaperCache[cacheKey];
-                        dom.wallpaperContainer.style.backgroundImage = `url(${data.url})`;
-                        render.wallpaperInfo(data.info);
-                        return Promise.resolve();
-                    }
+                    if (state.isWallpaperLoading) return;
+                    state.isWallpaperLoading = true;
 
                     try {
-                        let imageData;
-                        if (category === 'bing') {
-                            const url = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=${index}&n=1&mkt=zh-CN`;
-                            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-                            const bingData = await response.json();
-                            const imageUrl = `https://www.bing.com${bingData.images[0].url}`;
-                            imageData = { url: imageUrl, info: bingData.images[0].copyright };
-                        } else {
-                            // This part seems to rely on pre-loaded image lists which are not in the provided code.
-                            // Assuming it's handled elsewhere or this category is not used.
-                            imageData = { url: 'https://placehold.co/1920x1080/000000/FFFFFF?text=Image', info: 'Placeholder' };
-                        }
+                        const imageData = await core.getWallpaperData(index);
+                        if (!imageData) throw new Error("无法获取壁纸数据");
 
-                        return new Promise((resolve, reject) => {
-                            const img = new Image();
-                            img.src = imageData.url;
-                            img.onload = () => {
-                                state.wallpaperCache[cacheKey] = imageData;
-                                dom.wallpaperContainer.style.backgroundImage = `url(${imageData.url})`;
-                                render.wallpaperInfo(imageData.info);
+                        // 使用预加载的图片对象
+                        state.nextWallpaper.src = imageData.url;
+                        
+                        return new Promise((resolve) => {
+                            state.nextWallpaper.onload = () => {
+                                render.updateWallpaperDOM(imageData);
+                                state.isWallpaperLoading = false;
+                                // 成功加载后，立即开始预加载下一张
+                                setTimeout(() => core.preloadNextWallpaper(index), 500);
                                 resolve();
                             };
-                            img.onerror = () => {
+                            state.nextWallpaper.onerror = () => {
                                 utils.showAlert('壁纸加载失败。');
-                                reject();
+                                state.isWallpaperLoading = false;
+                                resolve(); // 即使失败也继续，避免阻塞
                             };
                         });
                     } catch (error) {
                         console.error('获取壁纸失败:', error);
                         utils.showAlert('获取壁纸失败，请检查网络连接。');
-                        return Promise.reject();
+                        state.isWallpaperLoading = false;
+                        return Promise.resolve();
+                    }
+                },
+
+                // 预加载下一张壁纸
+                preloadNextWallpaper: async (currentIndex) => {
+                    const nextIndex = core.getNextWallpaperIndex(currentIndex);
+                    try {
+                        const nextImageData = await core.getWallpaperData(nextIndex);
+                        if (nextImageData) {
+                            const preloader = new Image();
+                            preloader.src = nextImageData.url;
+                            console.log("Preloading next wallpaper:", nextImageData.url);
+                        }
+                    } catch (error) {
+                        console.error("Preloading failed:", error);
+                    }
+                },
+                
+                // 抽离获取壁纸数据的逻辑，并增加对空JSON的健壮性
+                getWallpaperData: async (index, categoryOverride) => {
+                    const category = categoryOverride || state.currentWallpaperCategory;
+                    const source = STATIC_CONFIG.WALLPAPER_SOURCES[category];
+                    if (!source) return null;
+                    const cacheKey = `${category}-${index}`;
+
+                    try {
+                        if (source.type === 'bing_api') {
+                            if (state.wallpaperCache[cacheKey]) return state.wallpaperCache[cacheKey];
+                            const url = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=${index}&n=1&mkt=zh-CN`;
+                            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                            if (!response.ok) throw new Error(`Bing API fetch failed: ${response.status}`);
+                            const text = await response.text();
+                            if (!text) return null; // FIX: Handle empty response
+                            const bingData = JSON.parse(text);
+                            const imageUrl = `https://www.bing.com${bingData.images[0].url}`;
+                            const imageData = { url: imageUrl, info: bingData.images[0].copyright, category: category, index: index };
+                            state.wallpaperCache[cacheKey] = imageData;
+                            return imageData;
+                        } else if (source.type === 'unsplash') {
+                            const imageUrl = `${source.url}&random=${Date.now() + index}`;
+                            return { url: imageUrl, info: source.name, category: category, index: index };
+                        } else if (source.type === 'btstu') {
+                            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(source.url)}`);
+                            if (!response.ok) throw new Error(`btstu API fetch failed: ${response.status}`);
+                            const text = await response.text();
+                            if (!text) return null; // FIX: Handle empty response
+                            const data = JSON.parse(text);
+                            if (data.code === "200" && data.imgurl) {
+                                return { url: data.imgurl.replace(/\\/g, ''), info: source.name, category: category, index: index };
+                            }
+                            throw new Error('btstu API returned invalid data');
+                        }
+                    } catch (error) {
+                        console.error(`Failed to get wallpaper for category "${category}":`, error);
+                        return null; // 返回null以防止Promise.all失败
+                    }
+                    return null;
+                },
+
+                // 获取下一张壁纸的索引
+                getNextWallpaperIndex: (currentIndex) => {
+                    const source = STATIC_CONFIG.WALLPAPER_SOURCES[state.currentWallpaperCategory];
+                    if (source.type === 'bing_api') {
+                        return (currentIndex - 1 + 8) % 8;
+                    } else {
+                        return Date.now(); // 对于随机源，总是新的
                     }
                 },
 
@@ -2329,21 +2443,16 @@
                 },
                 
                 handleNextWallpaper: () => {
-                    if (state.currentWallpaperCategory === 'bing') {
-                         state.currentWallpaperIndex = (state.currentWallpaperIndex - 1 + 8) % 8;
-                    } else {
-                        // Fallback for other categories
-                        state.currentWallpaperIndex = (state.currentWallpaperIndex + 1) % 8;
-                    }
+                    state.currentWallpaperIndex = core.getNextWallpaperIndex(state.currentWallpaperIndex);
                     core.fetchAndSetWallpaper(state.currentWallpaperIndex);
                 },
 
                 handlePrevWallpaper: () => {
-                    if (state.currentWallpaperCategory === 'bing') {
+                    const source = STATIC_CONFIG.WALLPAPER_SOURCES[state.currentWallpaperCategory];
+                    if (source.type === 'bing_api') {
                         state.currentWallpaperIndex = (state.currentWallpaperIndex + 1) % 8;
                     } else {
-                        // Fallback for other categories
-                        state.currentWallpaperIndex = (state.currentWallpaperIndex - 1 + 8) % 8;
+                        state.currentWallpaperIndex = Date.now();
                     }
                     core.fetchAndSetWallpaper(state.currentWallpaperIndex);
                 },
@@ -2374,24 +2483,24 @@
                 },
                 
                 handleDownloadWallpaper: async () => {
-                    const cacheKey = `${state.currentWallpaperCategory}-${state.currentWallpaperIndex}`;
-                    const currentWallpaper = state.wallpaperCache[cacheKey];
-                    if (!currentWallpaper) {
-                        utils.showAlert('无法获取当前壁纸信息。');
-                        return;
+                    const currentBg = dom.wallpaperContainer.style.backgroundImage;
+                    if (!currentBg || currentBg === 'none') {
+                         utils.showAlert('无法获取当前壁纸信息。');
+                         return;
                     }
+                    // Extract URL from 'url("...")'
+                    const currentUrl = currentBg.slice(5, -2);
+
                     try {
-                        const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(currentWallpaper.url)}`);
+                        // Using a CORS proxy for downloads might be necessary if Unsplash has protections
+                        const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(currentUrl)}`);
                         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
                         const blob = await response.blob();
                         const url = window.URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.style.display = 'none';
                         a.href = url;
-                        const urlParts = new URL(currentWallpaper.url);
-                        const pathParts = urlParts.pathname.split('/');
-                        const fileName = pathParts[pathParts.length - 1] || 'wallpaper.jpg';
-                        a.download = fileName;
+                        a.download = `wallpaper-${Date.now()}.jpg`;
                         document.body.appendChild(a);
                         a.click();
                         window.URL.revokeObjectURL(url);
@@ -2415,17 +2524,20 @@
                     }
                 },
 
-                setWallpaperFromGallery: (category, index) => {
-                    if (category !== state.currentWallpaperCategory) {
-                        state.currentWallpaperCategory = category;
-                        state.currentWallpaperIndex = index;
-                        core.stopSlideshow();
-                        core.fetchAndSetWallpaper(state.currentWallpaperIndex);
-                    } else {
-                        state.currentWallpaperIndex = index;
-                        core.stopSlideshow();
-                        core.fetchAndSetWallpaper(state.currentWallpaperIndex);
-                    }
+                setWallpaperFromGallery: (category, index, url) => {
+                    state.currentWallpaperCategory = category;
+                    state.currentWallpaperIndex = index;
+                    core.stopSlideshow();
+                    
+                    const source = STATIC_CONFIG.WALLPAPER_SOURCES[category];
+                    const imageData = { url: url, info: source.name };
+                    
+                    const img = new Image();
+                    img.src = imageData.url;
+                    img.onload = () => {
+                        render.updateWallpaperDOM(imageData);
+                    };
+                    
                     core.toggleWallpaperGallery();
                 },
             };
@@ -2434,6 +2546,37 @@
             // 渲染模块 (更新UI)
             // =================================================================
             const render = {
+                // 新增：更新壁纸DOM并实现交叉淡入效果
+                updateWallpaperDOM: (imageData) => {
+                    const container = dom.wallpaperContainer;
+                    
+                    // 1. 将当前背景图应用到伪元素，准备淡出
+                    const currentBg = window.getComputedStyle(container).backgroundImage;
+                    container.style.setProperty('--wallpaper-url-old', currentBg);
+
+                    // 2. 触发伪元素的淡入动画
+                    container.classList.add('is-loading');
+                    
+                    // 3. 将新图片应用到主元素 (它现在被伪元素遮盖)
+                    container.style.backgroundImage = `url(${imageData.url})`;
+                    
+                    // 4. 短暂延迟后，开始淡出伪元素
+                    setTimeout(() => {
+                        container.classList.remove('is-loading');
+                        render.watermark(imageData.info);
+                    }, 50);
+                },
+                
+                // 新增：渲染水印
+                watermark: (infoText = '') => {
+                    const infoEl = dom.wallpaperInfo;
+                    const toggleBtn = dom.toggleWatermarkBtn;
+
+                    infoEl.textContent = infoText;
+                    infoEl.classList.toggle('visible', state.userData.showWatermark && !!infoText);
+                    toggleBtn.classList.toggle('active', state.userData.showWatermark);
+                },
+
                 navigationView: () => {
                     dom.navGrid.classList.remove('hidden');
                     dom.searchResultsContainer.classList.add('hidden');
@@ -2576,10 +2719,9 @@
                     if (!container) return;
                     const fragment = document.createDocumentFragment();
                     
-                    // 简化分类，因为其他源数据未提供
-                    const categories = {
-                        'all': '全部',
-                        'bing': '必应每日',
+                    const categories = { 
+                        'all': '全部', 
+                        ...Object.fromEntries(Object.entries(STATIC_CONFIG.WALLPAPER_SOURCES).map(([key, value]) => [key, value.name])) 
                     };
 
                     for (const [key, name] of Object.entries(categories)) {
@@ -2599,11 +2741,13 @@
 
                 wallpaperInfo: (info) => {
                     dom.wallpaperInfo.textContent = info || '';
+                    render.watermark(info);
                 },
 
                 wallpaperGallery: async (clearExisting = false) => {
                     if (clearExisting) {
                         dom.wallpaperGalleryGrid.innerHTML = '';
+                        state.galleryUrlCache.clear();
                         dom.wallpaperGalleryPanel.scrollTop = 0;
                     }
 
@@ -2612,59 +2756,44 @@
 
                     const activeCategory = state.activeWallpaperGalleryCategory;
                     const fragment = document.createDocumentFragment();
-                    const promises = [];
-
-                    const allImageSources = [];
-                    if (activeCategory === 'all' || activeCategory === 'bing') {
-                        for (let i = 0; i < 8; i++) {
-                            allImageSources.push({ type: 'bing', index: i });
-                        }
-                    } 
-                    // Add other static sources here if available in STATIC_CONFIG
-
-                    const page = state.currentWallpaperPage;
-                    const perPage = STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE;
-                    const startIndex = (page - 1) * perPage;
-                    const endIndex = startIndex + perPage;
-                    const pageSources = allImageSources.slice(startIndex, endIndex);
-
-                    pageSources.forEach(source => {
-                        if (source.type === 'bing') {
-                            const promise = (async (index) => {
-                                const cacheKey = `bing-${index}`;
-                                if (state.wallpaperCache[cacheKey]) {
-                                    return { ...state.wallpaperCache[cacheKey], category: 'bing', index };
+                    
+                    let sourcesToFetch = [];
+                    if (activeCategory === 'all') {
+                        for (let i = 0; i < 4; i++) { sourcesToFetch.push({ type: 'bing_api', index: i }); }
+                        Object.entries(STATIC_CONFIG.WALLPAPER_SOURCES).forEach(([key, source]) => {
+                            if (source.type !== 'bing_api') {
+                                for (let i = 0; i < 4; i++) {
+                                    sourcesToFetch.push({ type: source.type, category: key, index: Math.random(), url: source.url, info: source.name });
                                 }
-                                try {
-                                    const url = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=${index}&n=1&mkt=zh-CN`;
-                                    const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
-                                    const bingData = await response.json();
-                                    const imageUrl = `https://www.bing.com${bingData.images[0].urlbase}_1920x1080.jpg`;
-                                    const imageData = { url: imageUrl, info: bingData.images[0].copyright, category: 'bing', index };
-                                    state.wallpaperCache[cacheKey] = imageData;
-                                    return imageData;
-                                } catch (e) { return null; }
-                            })(source.index);
-                            promises.push(promise);
-                        } else {
-                            promises.push(Promise.resolve({ ...source, category: source.category, index: source.index }));
+                            }
+                        });
+                    } else {
+                        const source = STATIC_CONFIG.WALLPAPER_SOURCES[activeCategory];
+                        const perPage = source.type === 'bing_api' ? 8 : STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE;
+                        for (let i = 0; i < perPage; i++) {
+                             const uniqueIndex = (state.currentWallpaperPage - 1) * perPage + i;
+                             sourcesToFetch.push({ type: source.type, category: activeCategory, index: uniqueIndex, url: source.url, info: source.name });
                         }
-                    });
+                    }
 
+                    const promises = sourcesToFetch.map(source => core.getWallpaperData(source.index, source.category || activeCategory));
                     const imagesToRender = (await Promise.all(promises)).filter(Boolean);
-
-                    if (imagesToRender.length === 0 && page > 1) {
+                    
+                    if (imagesToRender.length === 0 && state.currentWallpaperPage > 1) {
                         dom.galleryLoader.textContent = '没有更多壁纸了';
-                        state.isLoadingMoreWallpapers = true; // 阻止进一步加载
+                        state.isLoadingMoreWallpapers = true;
                         return;
                     }
 
-
                     imagesToRender.forEach(({ url, info, category, index }) => {
+                        if (state.galleryUrlCache.has(url)) return; // 去重
+                        state.galleryUrlCache.add(url);
+
                         const item = document.createElement('div');
                         item.className = 'wallpaper-gallery-item';
                         item.dataset.category = category;
                         item.dataset.index = index;
+                        item.dataset.url = url;
                         item.innerHTML = `<img src="${url}" alt="${info || 'Wallpaper'}" loading="lazy" onerror="this.parentElement.style.display='none'">`;
                         fragment.appendChild(item);
                     });
@@ -2722,7 +2851,8 @@
                         userBtn.setAttribute('aria-haspopup', 'true');
                         userBtn.setAttribute('aria-expanded', 'false');
 
-                        const nickname = state.currentUser.user_metadata.nickname || state.currentUser.email;
+                        const nickname = state.currentUser.user_metadata.nickname || state.currentUser.email.split('@')[0];
+                        const email = state.currentUser.email;
 
                         userBtn.innerHTML = `
                             <div class="user-avatar">
@@ -2734,7 +2864,14 @@
                         userMenu.id = 'user-menu';
                         userMenu.className = 'dropdown-menu';
                         userMenu.role = 'menu';
-                        userMenu.innerHTML = `<a href="#" class="dropdown-item" data-action="logout">退出登录</a>`;
+                        userMenu.innerHTML = `
+                            <div class="user-info">
+                                <strong class="user-info-name">${nickname}</strong>
+                                <small class="user-info-email">${email}</small>
+                            </div>
+                            <div class="context-menu-divider"></div>
+                            <a href="#" class="dropdown-item" data-action="logout">退出登录</a>
+                        `;
 
                         dom.userActionsContainer.appendChild(userBtn);
                         dom.userActionsContainer.appendChild(userMenu);
@@ -3156,23 +3293,24 @@
 
                         const url = new URL(decodedUrl);
                         const params = url.searchParams;
-                        const commonKeys = ['q', 'wd', 'query', 'keyword', 'search', 'text'];
+                        const commonKeys = ['q', 'query', 'wd', 'keyword', 'search', 'text', 's'];
                         
                         for (const key of commonKeys) {
                             if (params.has(key)) {
-                                params.set(key, '{query}');
-                                return url.origin + url.pathname + '?' + params.toString();
+                                const newParams = new URLSearchParams();
+                                newParams.set(key, '{query}');
+                                return `${url.origin}${url.pathname}?${newParams.toString()}`;
                             }
                         }
 
                         const firstParamKey = params.keys().next().value;
                         if (firstParamKey) {
-                            params.set(firstParamKey, '{query}');
-                            return url.origin + url.pathname + '?' + params.toString();
+                            const newParams = new URLSearchParams();
+                            newParams.set(firstParamKey, '{query}');
+                             return `${url.origin}${url.pathname}?${newParams.toString()}`;
                         }
                         
-                        return decodedUrl;
-
+                        return `${url.origin}${url.pathname}?q={query}`;
                     } catch (e) {
                         return pastedUrl;
                     }
@@ -4044,6 +4182,11 @@
                 });
                 dom.playPauseWallpaperBtn.addEventListener('click', core.toggleSlideshow);
                 dom.downloadWallpaperBtn.addEventListener('click', core.handleDownloadWallpaper);
+                dom.toggleWatermarkBtn.addEventListener('click', () => {
+                    state.userData.showWatermark = !state.userData.showWatermark;
+                    core.saveUserData();
+                    render.watermark(dom.wallpaperInfo.textContent);
+                });
                 dom.wallpaperGalleryTrigger.addEventListener('click', core.toggleWallpaperGallery);
                 
                 if (dom.wallpaperGalleryCategoriesContainer) {
@@ -4062,8 +4205,8 @@
                 dom.wallpaperGalleryGrid.addEventListener('click', (e) => {
                     const item = e.target.closest('.wallpaper-gallery-item');
                     if (item) {
-                        const { category, index } = item.dataset;
-                        core.setWallpaperFromGallery(category, parseInt(index, 10));
+                        const { category, index, url } = item.dataset;
+                        core.setWallpaperFromGallery(category, parseInt(index, 10), url);
                     }
                 });
 
