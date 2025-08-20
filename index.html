@@ -1486,16 +1486,6 @@
                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
                          </button>
                      </form>
-                     <div id="search-suggestions-container" class="dropdown-menu">
-                         <div id="suggestion-tabs">
-                             <div class="suggestion-tab-group">
-                                 <button class="suggestion-tab active" data-type="suggestion">搜索建议</button>
-                                 <button class="suggestion-tab" data-type="history">搜索历史</button>
-                             </div>
-                             <button id="clear-history-btn" class="hidden">清空记录</button>
-                         </div>
-                         <div id="suggestion-content"></div>
-                     </div>
                      <div id="search-clock"></div>
                  </div>
 
@@ -2065,11 +2055,11 @@
                             dataToLoad = data.data;
                             console.log("成功从 Supabase 加载数据。");
                         } else {
-                            // 如果云端没有数据，尝试从本地加载并同步到云端
-                             console.log("Supabase 中无用户数据，尝试从本地加载。");
-                             const localData = await storage.get() || STATIC_CONFIG.DEFAULT_USER_DATA;
-                             await core.saveUserData(localData); // 首次登录，将本地数据同步上去
-                             dataToLoad = localData;
+                            // [FIX] 云端没有数据，说明是新用户。使用全新的默认数据进行初始化，避免使用可能已损坏的本地数据。
+                            console.log("Supabase 中无用户数据，使用默认数据进行初始化并同步到云端。");
+                            const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                            await core.saveUserData(defaultData); // 将全新的默认数据上传到云端
+                            dataToLoad = defaultData; // 使用这份干净的默认数据来渲染UI
                         }
                     } else {
                         console.log("从本地存储加载数据...");
