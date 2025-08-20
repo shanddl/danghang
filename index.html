@@ -2054,14 +2054,18 @@
                         if (data) {
                             dataToLoad = data.data;
                             console.log("成功从 Supabase 加载数据。");
+                            // [FIX 1] Sync cloud data back to local storage for consistency on logout
+                            await storage.set(dataToLoad);
                         } else {
-                            // [FIX] 云端没有数据，说明是新用户。使用全新的默认数据进行初始化，避免使用可能已损坏的本地数据。
                             console.log("Supabase 中无用户数据，使用默认数据进行初始化并同步到云端。");
                             const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
                             await core.saveUserData(defaultData); // 将全新的默认数据上传到云端
                             dataToLoad = defaultData; // 使用这份干净的默认数据来渲染UI
+                             // [FIX 1] Also save the new default data to local storage
+                            await storage.set(dataToLoad);
                         }
                     } else {
+                        // Logged out state
                         console.log("从本地存储加载数据...");
                         dataToLoad = await storage.get();
                     }
@@ -4262,6 +4266,14 @@
                         
                         console.log(`Auth event: ${event}`, session);
                         
+                        // [FIX 2] If user signs out, clear local storage and reset to default.
+                        // This prevents loading a stale/corrupted local state.
+                        if (event === 'SIGNED_OUT') {
+                            console.log("用户已登出，重置为默认本地数据。");
+                            // Clear local storage by setting it to the default state
+                            await storage.set(STATIC_CONFIG.DEFAULT_USER_DATA);
+                        }
+
                         render.userActions();
                         await core.loadUserData(); // 登录/退出后重新加载数据
                     });
