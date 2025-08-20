@@ -2002,10 +2002,24 @@
             const storage = {
                 get: async function() {
                     const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
-                    return localData ? JSON.parse(localData) : null;
+                    if (!localData) {
+                        return null;
+                    }
+                    try {
+                        // [FIXED] Safely parse local storage data
+                        return JSON.parse(localData);
+                    } catch (e) {
+                        console.error("解析本地存储数据失败:", e);
+                        // Return null if data is corrupted, so the app can fall back to defaults
+                        return null;
+                    }
                 },
                 set: async function(data) {
-                    localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(data));
+                    try {
+                        localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(data));
+                    } catch (e) {
+                        console.error("写入本地存储失败:", e);
+                    }
                 }
             };
 
@@ -2045,16 +2059,13 @@
                         dataToLoad = await storage.get();
                     }
 
-                    // --- [FIX START] 增强数据合并逻辑 ---
                     const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
 
                     if (!dataToLoad) {
                         state.userData = defaultData;
                     } else {
-                        // 1. 基础合并，确保顶层属性存在
                         state.userData = { ...defaultData, ...dataToLoad };
 
-                        // 2. 深度校验和修复数组对象，防止内部属性缺失
                         if (dataToLoad.navItems && Array.isArray(dataToLoad.navItems)) {
                             state.userData.navItems = dataToLoad.navItems.map(item => ({
                                 name: item.name || '无标题',
@@ -2077,18 +2088,15 @@
                             state.userData.searchEngines = defaultData.searchEngines;
                         }
                         
-                        // 3. 确保活动搜索引擎ID有效
                         if (!state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId)) {
-                            state.userData.activeSearchEngineId = defaultData.activeSearchEngineId;
+                            state.userData.activeSearchEngineId = state.userData.searchEngines[0]?.id || defaultData.activeSearchEngineId;
                         }
 
-                        // 4. 确保其他数组类型正确
                         if (!Array.isArray(state.userData.searchHistory)) state.userData.searchHistory = [];
                         if (!Array.isArray(state.userData.navCategories)) state.userData.navCategories = defaultData.navCategories;
                         if (!Array.isArray(state.userData.searchScopes)) state.userData.searchScopes = [];
 
                     }
-                    // --- [FIX END] ---
                     
                     if (!dataToLoad && !state.isLoggedIn) {
                         await core.saveUserData();
@@ -3812,13 +3820,12 @@
                     const query = dom.searchInput.value.trim();
                     const mode = state.suggestionViewMode;
                     
-                    // [FIX] Add null check for clearHistoryBtn
                     if (dom.clearHistoryBtn) {
                         dom.clearHistoryBtn.classList.toggle('hidden', mode !== 'history' || state.userData.searchHistory.length === 0);
                     }
                     
                     if (!query && mode === 'suggestion') {
-                        if (dom.searchSuggestionsContainer) { // [FIX] Add null check
+                        if (dom.searchSuggestionsContainer) {
                             dom.searchSuggestionsContainer.classList.remove('visible');
                         }
                         return;
@@ -4065,7 +4072,9 @@
                 });
                 dom.wallpaperGalleryTrigger.addEventListener('click', core.toggleWallpaperGallery);
                 
+                // [FIXED] Wallpaper category click logic
                 dom.wallpaperGalleryCategoriesContainer?.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent the global click handler from closing the panel
                     const btn = e.target.closest('.wallpaper-gallery-category-btn');
                     if (btn && !btn.classList.contains('active')) {
                         state.activeWallpaperGalleryCategory = btn.dataset.category;
