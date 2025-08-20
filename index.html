@@ -1487,6 +1487,17 @@
                          </button>
                      </form>
                      <div id="search-clock"></div>
+                     <!-- [FIXED] Added missing search suggestions container -->
+                     <div id="search-suggestions-container" class="dropdown-menu">
+                        <div id="suggestion-tabs">
+                            <div class="suggestion-tab-group">
+                                <button class="suggestion-tab active" data-type="suggestion">搜索建议</button>
+                                <button class="suggestion-tab" data-type="history">历史记录</button>
+                            </div>
+                            <button id="clear-history-btn" class="hidden">清空</button>
+                        </div>
+                        <div id="suggestion-content"></div>
+                    </div>
                  </div>
 
                  <div class="header-group-right">
@@ -1895,10 +1906,9 @@
                     activeSearchEngineId: 'engine_ddns',
                     theme: 'auto', 
                     isDockPinned: false, 
-                    showWatermark: true, // 新增：保存水印显示状态
+                    showWatermark: true,
                 },
                 THEMES: ['aurora', 'sunset', 'ocean', 'neon', 'forest', 'cosmic'],
-                // 更新：添加更多高清壁纸源
                 WALLPAPER_SOURCES: {
                     'bing': { name: '必应每日', type: 'bing_api' },
                     'unsplash_landscape': { name: '随机风景', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?landscape,nature' },
@@ -1936,8 +1946,8 @@
                 activeWallpaperGalleryCategory: 'all',
                 currentWallpaperIndex: 0,
                 wallpaperCache: {}, 
-                nextWallpaper: new Image(), // 新增：用于预加载下一张壁纸
-                isWallpaperLoading: false, // 新增：壁纸加载状态锁
+                nextWallpaper: new Image(),
+                isWallpaperLoading: false,
                 galleryUrlCache: new Set(),
                 isSlideshowPlaying: false,
                 slideshowInterval: null,
@@ -1987,50 +1997,15 @@
             ];
 
             // =================================================================
-            // 本地存储模块 (兼容 Chrome 扩展和普通网页)
+            // 本地存储模块
             // =================================================================
             const storage = {
-                isChromeStorage: (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync),
-
-                init: function() {
-                    if (this.isChromeStorage) {
-                        console.log("存储模式: chrome.storage.sync 已激活。");
-                        chrome.storage.onChanged.addListener((changes, namespace) => {
-                            if (changes[STATIC_CONFIG.CONSTANTS.STORAGE_KEY] && namespace === 'sync') {
-                                console.log('检测到 chrome.storage.sync 数据变更，重新加载数据。');
-                                core.loadUserData();
-                            }
-                        });
-                    } else {
-                        console.warn("存储模式: 未找到 chrome.storage.sync，回退至 localStorage。");
-                    }
-                },
-
                 get: async function() {
-                    if (this.isChromeStorage) {
-                        try {
-                            const result = await chrome.storage.sync.get(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
-                            return result[STATIC_CONFIG.CONSTANTS.STORAGE_KEY];
-                        } catch (e) {
-                            console.error("从 chrome.storage.sync 读取失败:", e);
-                            return null;
-                        }
-                    } else {
-                        const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
-                        return localData ? JSON.parse(localData) : null;
-                    }
+                    const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
+                    return localData ? JSON.parse(localData) : null;
                 },
-
                 set: async function(data) {
-                    if (this.isChromeStorage) {
-                        try {
-                            await chrome.storage.sync.set({ [STATIC_CONFIG.CONSTANTS.STORAGE_KEY]: data });
-                        } catch (e) {
-                             console.error("写入 chrome.storage.sync 失败:", e);
-                        }
-                    } else {
-                        localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(data));
-                    }
+                    localStorage.setItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY, JSON.stringify(data));
                 }
             };
 
@@ -2042,54 +2017,81 @@
                     let dataToLoad = null;
                     if (state.isLoggedIn && state.currentUser) {
                         console.log("从 Supabase 加载用户数据...");
-                        const { data, error } = await supabase
-                            .from('user_configs')
-                            .select('data')
-                            .eq('user_id', state.currentUser.id)
-                            .single();
+                        try {
+                            const { data, error } = await supabase
+                                .from('user_configs')
+                                .select('data')
+                                .eq('user_id', state.currentUser.id)
+                                .single();
 
-                        if (error && error.code !== 'PGRST116') { // PGRST116: a single row was not found
-                            console.error("从 Supabase 加载数据失败:", error);
-                        }
-                        if (data) {
-                            dataToLoad = data.data;
-                            console.log("成功从 Supabase 加载数据。");
-                            // [FIX 1] Sync cloud data back to local storage for consistency on logout
-                            await storage.set(dataToLoad);
-                        } else {
-                            console.log("Supabase 中无用户数据，使用默认数据进行初始化并同步到云端。");
-                            const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                            await core.saveUserData(defaultData); // 将全新的默认数据上传到云端
-                            dataToLoad = defaultData; // 使用这份干净的默认数据来渲染UI
-                             // [FIX 1] Also save the new default data to local storage
-                            await storage.set(dataToLoad);
+                            if (error && error.code !== 'PGRST116') {
+                                throw error;
+                            }
+                            if (data) {
+                                dataToLoad = data.data;
+                                console.log("成功从 Supabase 加载数据。");
+                                await storage.set(dataToLoad);
+                            } else {
+                                console.log("Supabase 中无用户数据，使用默认数据初始化。");
+                                dataToLoad = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                                await core.saveUserData(dataToLoad);
+                            }
+                        } catch (error) {
+                             console.error("从 Supabase 加载数据失败，将使用本地数据:", error);
+                             dataToLoad = await storage.get();
                         }
                     } else {
-                        // Logged out state
                         console.log("从本地存储加载数据...");
                         dataToLoad = await storage.get();
                     }
 
-                    // 合并默认数据，防止加载的数据缺少新版本的新字段
-                    state.userData = {
-                        ...JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)),
-                        ...(dataToLoad || {})
-                    };
+                    // --- [FIX START] 增强数据合并逻辑 ---
+                    const defaultData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+
+                    if (!dataToLoad) {
+                        state.userData = defaultData;
+                    } else {
+                        // 1. 基础合并，确保顶层属性存在
+                        state.userData = { ...defaultData, ...dataToLoad };
+
+                        // 2. 深度校验和修复数组对象，防止内部属性缺失
+                        if (dataToLoad.navItems && Array.isArray(dataToLoad.navItems)) {
+                            state.userData.navItems = dataToLoad.navItems.map(item => ({
+                                name: item.name || '无标题',
+                                url: item.url || '#',
+                                icon: item.icon || `https://icon.bqb.cool/?url=${utils.purifyUrl(item.url || '')}`,
+                                category: item.category || '未分类'
+                            }));
+                        } else {
+                            state.userData.navItems = defaultData.navItems;
+                        }
+
+                        if (dataToLoad.searchEngines && Array.isArray(dataToLoad.searchEngines)) {
+                            state.userData.searchEngines = dataToLoad.searchEngines.map((engine, index) => ({
+                                id: engine.id || `engine_${Date.now() + index}`,
+                                name: engine.name || '未知引擎',
+                                url: engine.url || defaultData.searchEngines[0].url,
+                                icon: engine.icon || defaultData.searchEngines[0].icon
+                            }));
+                        } else {
+                            state.userData.searchEngines = defaultData.searchEngines;
+                        }
+                        
+                        // 3. 确保活动搜索引擎ID有效
+                        if (!state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId)) {
+                            state.userData.activeSearchEngineId = defaultData.activeSearchEngineId;
+                        }
+
+                        // 4. 确保其他数组类型正确
+                        if (!Array.isArray(state.userData.searchHistory)) state.userData.searchHistory = [];
+                        if (!Array.isArray(state.userData.navCategories)) state.userData.navCategories = defaultData.navCategories;
+                        if (!Array.isArray(state.userData.searchScopes)) state.userData.searchScopes = [];
+
+                    }
+                    // --- [FIX END] ---
                     
-                    // 如果最终没有任何数据（首次访问），则保存一次默认数据
                     if (!dataToLoad && !state.isLoggedIn) {
                         await core.saveUserData();
-                    }
-
-                    // 数据校验和兼容
-                    if (!Array.isArray(state.userData.searchHistory)) state.userData.searchHistory = [];
-                    if (!Array.isArray(state.userData.navItems)) state.userData.navItems = [];
-                    if (!Array.isArray(state.userData.searchScopes)) state.userData.searchScopes = [];
-                    if (!Array.isArray(state.userData.searchEngines) || state.userData.searchEngines.length === 0) {
-                        state.userData.searchEngines = STATIC_CONFIG.DEFAULT_USER_DATA.searchEngines;
-                    }
-                    if (!state.userData.activeSearchEngineId || !state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId)) {
-                        state.userData.activeSearchEngineId = STATIC_CONFIG.DEFAULT_USER_DATA.activeSearchEngineId;
                     }
 
                     core.applyAllSettings();
@@ -2104,10 +2106,7 @@
 
                         if (error) {
                             console.error("保存数据到 Supabase 失败:", error);
-                        } else {
-                            console.log("成功保存数据到 Supabase。");
                         }
-                        return;
                     }
                     console.log("保存数据到本地存储。");
                     await storage.set(dataToSave);
@@ -2124,7 +2123,7 @@
                     render.searchScopeSelector();
                     render.activeScopeTag();
                     render.searchEngineSwitcher();
-                    render.watermark(); // 应用水印初始状态
+                    render.watermark();
                 },
 
                 register: async (email, password) => {
@@ -2151,7 +2150,6 @@
 
                     if (error) {
                         utils.showAlert(utils.translateSupabaseError(error), '注册失败');
-                        console.error("注册失败:", error);
                         return;
                     }
                     
@@ -2172,7 +2170,6 @@
 
                     if (error) {
                         utils.showAlert(utils.translateSupabaseError(error), '登录失败');
-                        console.error("登录失败:", error);
                     } else {
                          dom.authModal.classList.remove('visible');
                     }
@@ -2186,16 +2183,14 @@
                     } else {
                         utils.showAlert("您已退出登录。");
                     }
-                    // onAuthStateChange 会处理后续状态更新
                 },
 
                 handlePasswordReset: async (email) => {
                     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                        redirectTo: window.location.href, // 用户点击链接后重定向回此页面
+                        redirectTo: window.location.href,
                     });
 
                     if (error) {
-                        console.error("密码重置请求失败:", error);
                         utils.showAlert(`操作失败: ${utils.translateSupabaseError(error)}`, '操作失败');
                     } else {
                         utils.showAlert("如果该邮箱已注册，一封重设密码的邮件将会发送到您的收件箱，请注意查收。");
@@ -2260,7 +2255,7 @@
                         state.currentThemeIndex = (state.currentThemeIndex + 1) % STATIC_CONFIG.THEMES.length;
                         dom.body.dataset.theme = STATIC_CONFIG.THEMES[state.currentThemeIndex];
                     };
-                    rotate(); // 立即执行一次
+                    rotate();
                     state.themeInterval = setInterval(rotate, 10000);
                 },
 
@@ -2310,7 +2305,6 @@
                     dom.importFileInput.click();
                 },
                 
-                // 优化后的壁纸获取与显示逻辑
                 fetchAndSetWallpaper: async (index) => {
                     if (state.isWallpaperLoading) return;
                     state.isWallpaperLoading = true;
@@ -2319,21 +2313,19 @@
                         const imageData = await core.getWallpaperData(index);
                         if (!imageData) throw new Error("无法获取壁纸数据");
 
-                        // 使用预加载的图片对象
                         state.nextWallpaper.src = imageData.url;
                         
                         return new Promise((resolve) => {
                             state.nextWallpaper.onload = () => {
                                 render.updateWallpaperDOM(imageData);
                                 state.isWallpaperLoading = false;
-                                // 成功加载后，立即开始预加载下一张
                                 setTimeout(() => core.preloadNextWallpaper(index), 500);
                                 resolve();
                             };
                             state.nextWallpaper.onerror = () => {
                                 utils.showAlert('壁纸加载失败。');
                                 state.isWallpaperLoading = false;
-                                resolve(); // 即使失败也继续，避免阻塞
+                                resolve();
                             };
                         });
                     } catch (error) {
@@ -2344,7 +2336,6 @@
                     }
                 },
 
-                // 预加载下一张壁纸
                 preloadNextWallpaper: async (currentIndex) => {
                     const nextIndex = core.getNextWallpaperIndex(currentIndex);
                     try {
@@ -2352,14 +2343,12 @@
                         if (nextImageData) {
                             const preloader = new Image();
                             preloader.src = nextImageData.url;
-                            console.log("Preloading next wallpaper:", nextImageData.url);
                         }
                     } catch (error) {
                         console.error("Preloading failed:", error);
                     }
                 },
                 
-                // 抽离获取壁纸数据的逻辑，并增加对空JSON的健壮性
                 getWallpaperData: async (index, categoryOverride) => {
                     const category = categoryOverride || state.currentWallpaperCategory;
                     const source = STATIC_CONFIG.WALLPAPER_SOURCES[category];
@@ -2373,7 +2362,7 @@
                             const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
                             if (!response.ok) throw new Error(`Bing API fetch failed: ${response.status}`);
                             const text = await response.text();
-                            if (!text) return null; // FIX: Handle empty response
+                            if (!text) return null;
                             const bingData = JSON.parse(text);
                             const imageUrl = `https://www.bing.com${bingData.images[0].url}`;
                             const imageData = { url: imageUrl, info: bingData.images[0].copyright, category: category, index: index };
@@ -2386,7 +2375,7 @@
                             const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(source.url)}`);
                             if (!response.ok) throw new Error(`btstu API fetch failed: ${response.status}`);
                             const text = await response.text();
-                            if (!text) return null; // FIX: Handle empty response
+                            if (!text) return null;
                             const data = JSON.parse(text);
                             if (data.code === "200" && data.imgurl) {
                                 return { url: data.imgurl.replace(/\\/g, ''), info: source.name, category: category, index: index };
@@ -2395,18 +2384,17 @@
                         }
                     } catch (error) {
                         console.error(`Failed to get wallpaper for category "${category}":`, error);
-                        return null; // 返回null以防止Promise.all失败
+                        return null;
                     }
                     return null;
                 },
 
-                // 获取下一张壁纸的索引
                 getNextWallpaperIndex: (currentIndex) => {
                     const source = STATIC_CONFIG.WALLPAPER_SOURCES[state.currentWallpaperCategory];
                     if (source.type === 'bing_api') {
                         return (currentIndex - 1 + 8) % 8;
                     } else {
-                        return Date.now(); // 对于随机源，总是新的
+                        return Date.now();
                     }
                 },
 
@@ -2482,11 +2470,9 @@
                          utils.showAlert('无法获取当前壁纸信息。');
                          return;
                     }
-                    // Extract URL from 'url("...")'
                     const currentUrl = currentBg.slice(5, -2);
 
                     try {
-                        // Using a CORS proxy for downloads might be necessary if Unsplash has protections
                         const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(currentUrl)}`);
                         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
                         const blob = await response.blob();
@@ -2540,28 +2526,20 @@
             // 渲染模块 (更新UI)
             // =================================================================
             const render = {
-                // 新增：更新壁纸DOM并实现交叉淡入效果
                 updateWallpaperDOM: (imageData) => {
                     const container = dom.wallpaperContainer;
                     
-                    // 1. 将当前背景图应用到伪元素，准备淡出
                     const currentBg = window.getComputedStyle(container).backgroundImage;
                     container.style.setProperty('--wallpaper-url-old', currentBg);
-
-                    // 2. 触发伪元素的淡入动画
                     container.classList.add('is-loading');
-                    
-                    // 3. 将新图片应用到主元素 (它现在被伪元素遮盖)
                     container.style.backgroundImage = `url(${imageData.url})`;
                     
-                    // 4. 短暂延迟后，开始淡出伪元素
                     setTimeout(() => {
                         container.classList.remove('is-loading');
                         render.watermark(imageData.info);
                     }, 50);
                 },
                 
-                // 新增：渲染水印
                 watermark: (infoText = '') => {
                     const infoEl = dom.wallpaperInfo;
                     const toggleBtn = dom.toggleWatermarkBtn;
@@ -2780,7 +2758,7 @@
                     }
 
                     imagesToRender.forEach(({ url, info, category, index }) => {
-                        if (state.galleryUrlCache.has(url)) return; // 去重
+                        if (state.galleryUrlCache.has(url)) return;
                         state.galleryUrlCache.add(url);
 
                         const item = document.createElement('div');
@@ -2845,8 +2823,10 @@
                         userBtn.setAttribute('aria-haspopup', 'true');
                         userBtn.setAttribute('aria-expanded', 'false');
 
-                        const nickname = state.currentUser.user_metadata.nickname || state.currentUser.email.split('@')[0];
-                        const email = state.currentUser.email;
+                        // --- [FIX START] 增加渲染的防御性 ---
+                        const nickname = state.currentUser?.user_metadata?.nickname || state.currentUser?.email?.split('@')[0] || '用户';
+                        const email = state.currentUser?.email || '';
+                        // --- [FIX END] ---
 
                         userBtn.innerHTML = `
                             <div class="user-avatar">
@@ -3151,16 +3131,9 @@
                     dom.customAlertModal.classList.add('visible');
                 },
                 translateSupabaseError: (error) => {
-                    console.error("Supabase Error:", error);
-                    if (error.message.includes("User already registered")) {
-                        return "该邮箱已被注册。";
-                    }
-                    if (error.message.includes("Invalid login credentials")) {
-                        return "无效的登录凭据（邮箱或密码错误）。";
-                    }
-                    if (error.message.includes("Password should be at least 6 characters")) {
-                        return "密码长度至少为6位。";
-                    }
+                    if (error.message.includes("User already registered")) return "该邮箱已被注册。";
+                    if (error.message.includes("Invalid login credentials")) return "无效的登录凭据（邮箱或密码错误）。";
+                    if (error.message.includes("Password should be at least 6 characters")) return "密码长度至少为6位。";
                     return error.message || '发生未知错误，请稍后再试。';
                 },
                 toggleDropdown: (button, menu) => {
@@ -3208,10 +3181,7 @@
                     const camelCaseFormId = formId.replace(/-(\w)/g, (_, c) => c.toUpperCase());
                     const formElement = dom[camelCaseFormId];
 
-                    if (!formElement) {
-                        console.error(`未在DOM缓存中找到ID为 ${formId} 的表单元素。`);
-                        return;
-                    }
+                    if (!formElement) return;
 
                     const name = formElement.querySelector(isEdit ? '#edit-site-name' : '#site-name').value.trim();
                     let url = formElement.querySelector(isEdit ? '#edit-site-url' : '#site-url').value.trim();
@@ -3260,7 +3230,6 @@
                         formElement.reset();
                         dom[isEdit ? 'editSiteModal' : 'addSiteModal'].classList.remove('visible');
                     } catch (error) {
-                        console.error("处理网站表单时出错:", error);
                         utils.showAlert("操作失败，请输入一个有效的网址或检查网络连接。", "错误");
                     }
                 },
@@ -3291,17 +3260,9 @@
                         
                         for (const key of commonKeys) {
                             if (params.has(key)) {
-                                const newParams = new URLSearchParams();
-                                newParams.set(key, '{query}');
-                                return `${url.origin}${url.pathname}?${newParams.toString()}`;
+                                params.set(key, '{query}');
+                                return `${url.origin}${url.pathname}?${params.toString()}`;
                             }
-                        }
-
-                        const firstParamKey = params.keys().next().value;
-                        if (firstParamKey) {
-                            const newParams = new URLSearchParams();
-                            newParams.set(firstParamKey, '{query}');
-                             return `${url.origin}${url.pathname}?${newParams.toString()}`;
                         }
                         
                         return `${url.origin}${url.pathname}?q={query}`;
@@ -3351,7 +3312,6 @@
                             startDate = customStart || '';
                             endDate = customEnd || '';
                             break;
-                        case 'any':
                         default:
                             return { startDate: '', endDate: '' };
                     }
@@ -3690,7 +3650,7 @@
                     }
 
                     if (form.id === 'forgot-password-form') {
-                        const email = dom.forgotEmailInput.value;
+                        const email = document.getElementById('forgot-email-input').value;
                         await core.handlePasswordReset(email);
                         return;
                     }
@@ -3775,9 +3735,7 @@
                 
                 handleContextMenu: (e) => {
                     const navItemEl = e.target.closest('.nav-item');
-                    if (!navItemEl) {
-                        return;
-                    }
+                    if (!navItemEl) return;
 
                     e.preventDefault();
                     e.stopPropagation();
@@ -3796,38 +3754,18 @@
 
                     const menu = dom.contextMenu;
                     
-                    menu.style.top = 'auto';
-                    menu.style.bottom = 'auto';
-                    menu.style.left = 'auto';
-                    menu.style.right = 'auto';
-                    menu.classList.remove('opens-up');
-                    menu.style.transformOrigin = '';
-
-                    menu.style.visibility = 'hidden';
-                    menu.style.display = 'block';
-                    const menuHeight = menu.offsetHeight;
-                    const menuWidth = menu.offsetWidth;
-                    menu.style.display = '';
-                    menu.style.visibility = '';
-
-                    let top = e.clientY;
-                    let left = e.clientX;
-
-                    if (top + menuHeight > window.innerHeight) {
-                        top = e.clientY - menuHeight;
-                    }
-
-                    if (left + menuWidth > window.innerWidth) {
-                        left = e.clientX - menuWidth;
-                    }
-
-                    menu.style.top = `${top}px`;
-                    menu.style.left = `${left}px`;
+                    menu.style.top = `${e.clientY}px`;
+                    menu.style.left = `${e.clientX}px`;
                     menu.classList.add('visible');
                 },
 
                 handleMainContextMenu: (e) => {
                     if (state.isTheaterMode) return;
+                    if (e.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+                    if (e.target.closest('.nav-item, .dock-action-btn, .dock-category-btn')) {
+                         e.preventDefault();
+                         return;
+                    }
 
                     e.preventDefault();
                     utils.closeAllDropdowns();
@@ -3862,10 +3800,10 @@
                 },
                 
                 handleDoubleClick: (e) => {
+                    if (e.target.closest('a, button, input, select, .modal-content')) return;
                     if (state.isTheaterMode) {
                         core.exitTheaterMode();
                     } else {
-                        if (e.target.closest('a, button, input, select, .modal-content')) return;
                         core.enterTheaterMode();
                     }
                 },
@@ -3874,10 +3812,15 @@
                     const query = dom.searchInput.value.trim();
                     const mode = state.suggestionViewMode;
                     
-                    dom.clearHistoryBtn.classList.toggle('hidden', mode !== 'history' || state.userData.searchHistory.length === 0);
+                    // [FIX] Add null check for clearHistoryBtn
+                    if (dom.clearHistoryBtn) {
+                        dom.clearHistoryBtn.classList.toggle('hidden', mode !== 'history' || state.userData.searchHistory.length === 0);
+                    }
                     
                     if (!query && mode === 'suggestion') {
-                        dom.searchSuggestionsContainer.classList.remove('visible');
+                        if (dom.searchSuggestionsContainer) { // [FIX] Add null check
+                            dom.searchSuggestionsContainer.classList.remove('visible');
+                        }
                         return;
                     }
 
@@ -3892,12 +3835,10 @@
                                 throw new Error("No suggestions from Bing");
                             }
                         } catch (error) {
-                            console.warn("Bing suggestions failed, trying Baidu...", error);
                             try {
                                 const suggestions = await handlers.fetchBaiduSuggestions(query);
                                 render.suggestions(suggestions, 'suggestion');
                             } catch (baiduError) {
-                                console.error("Baidu suggestions also failed.", baiduError);
                                 if (dom.searchSuggestionsContainer) dom.searchSuggestionsContainer.classList.remove('visible');
                             }
                         }
@@ -3915,33 +3856,13 @@
                 document.querySelectorAll('form').forEach(f => f.addEventListener('submit', handlers.formSubmit));
                 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', handlers.modalClose));
                 
-                document.addEventListener('contextmenu', (e) => {
-                    const navItemEl = e.target.closest('.nav-item');
-                    const isActionBtn = e.target.closest('.dock-action-btn');
-                    const isCategoryBtn = e.target.closest('.dock-category-btn');
-                    
-                    if (e.target.matches('input, textarea, select, [contenteditable="true"]')) {
-                        return;
-                    }
-
-                    if (navItemEl) {
-                        handlers.handleContextMenu(e);
-                    } else if (isActionBtn || isCategoryBtn) {
-                         e.preventDefault();
-                    } else {
-                        handlers.handleMainContextMenu(e);
-                    }
-                });
+                document.addEventListener('contextmenu', handlers.handleMainContextMenu);
+                dom.navGrid.addEventListener('contextmenu', handlers.handleContextMenu);
                 
                 document.addEventListener('dblclick', handlers.handleDoubleClick);
 
-
-                [dom.navGrid, dom.dockContainer].forEach(el => {
-                    if(el) {
-                        el.addEventListener('dragover', dnd.handleDragOver);
-                        el.addEventListener('drop', dnd.handleDrop);
-                    }
-                });
+                dom.navGrid.addEventListener('dragover', dnd.handleDragOver);
+                dom.navGrid.addEventListener('drop', dnd.handleDrop);
                 document.addEventListener('dragstart', dnd.handleDragStart);
                 document.addEventListener('dragend', dnd.handleDragEnd);
 
@@ -3977,25 +3898,15 @@
                 });
                 
                 dom.increaseSizeBtn.addEventListener('click', () => {
-                    const slider = dom.sizeSlider;
-                    const currentValue = parseInt(slider.value, 10);
-                    const maxValue = parseInt(slider.max, 10);
-                    const step = 10;
-                    const newValue = Math.min(currentValue + step, maxValue);
-                    slider.value = newValue;
-                    slider.dispatchEvent(new Event('input', { bubbles: true }));
-                    slider.dispatchEvent(new Event('change', { bubbles: true }));
+                    dom.sizeSlider.value = Math.min(parseInt(dom.sizeSlider.value, 10) + 10, dom.sizeSlider.max);
+                    dom.sizeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    dom.sizeSlider.dispatchEvent(new Event('change', { bubbles: true }));
                 });
 
                 dom.decreaseSizeBtn.addEventListener('click', () => {
-                    const slider = dom.sizeSlider;
-                    const currentValue = parseInt(slider.value, 10);
-                    const minValue = parseInt(slider.min, 10);
-                    const step = 10;
-                    const newValue = Math.max(currentValue - step, minValue);
-                    slider.value = newValue;
-                    slider.dispatchEvent(new Event('input', { bubbles: true }));
-                    slider.dispatchEvent(new Event('change', { bubbles: true }));
+                    dom.sizeSlider.value = Math.max(parseInt(dom.sizeSlider.value, 10) - 10, dom.sizeSlider.min);
+                    dom.sizeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+                    dom.sizeSlider.dispatchEvent(new Event('change', { bubbles: true }));
                 });
 
                 dom.confirmModalBtn.addEventListener('click', () => {
@@ -4045,7 +3956,6 @@
                         if (menu) {
                            utils.toggleDropdown(addBtn, menu);
                         }
-                        return;
                     }
                 });
                 
@@ -4056,9 +3966,7 @@
                             handlers.showSuggestions();
                         }
                     });
-                    dom.searchInput.addEventListener('blur', () => {
-                        dom.searchContainer.classList.remove('focused');
-                    });
+                    dom.searchInput.addEventListener('blur', () => dom.searchContainer.classList.remove('focused'));
                     dom.searchInput.addEventListener('input', () => {
                         dom.searchContainer.classList.toggle('has-input', dom.searchInput.value.length > 0);
                         state.activeSuggestionIndex = -1;
@@ -4071,84 +3979,68 @@
                             utils.toggleDropdown(dom.searchScopeBtn, dom.searchScopeMenu);
                             return;
                         }
-                        
-                        if (!dom.searchSuggestionsContainer || !dom.searchSuggestionsContainer.classList.contains('visible')) return;
-                        
+                        if (!dom.searchSuggestionsContainer?.classList.contains('visible')) return;
                         const items = dom.suggestionContent.querySelectorAll('.suggestion-item');
                         if (items.length === 0) return;
+                        
                         let newIndex = state.activeSuggestionIndex;
                         if (e.key === 'ArrowDown') { e.preventDefault(); newIndex = (state.activeSuggestionIndex + 1) % items.length; }
                         else if (e.key === 'ArrowUp') { e.preventDefault(); newIndex = (state.activeSuggestionIndex - 1 + items.length) % items.length; }
                         else if (e.key === 'Enter') { if (state.activeSuggestionIndex > -1) { e.preventDefault(); items[state.activeSuggestionIndex].click(); } return; }
                         else { return; }
+                        
                         state.activeSuggestionIndex = newIndex;
                         items.forEach((item, index) => item.classList.toggle('active', index === newIndex));
                         if (state.activeSuggestionIndex > -1) { dom.searchInput.value = items[state.activeSuggestionIndex].dataset.value; }
                     });
                 }
                 
-                if (dom.suggestionTabs) {
-                    dom.suggestionTabs.addEventListener('click', (e) => {
-                        const tab = e.target.closest('.suggestion-tab');
-                        if (tab && !tab.classList.contains('active')) {
-                            dom.suggestionTabs.querySelector('.active').classList.remove('active');
-                            tab.classList.add('active');
-                            state.suggestionViewMode = tab.dataset.type;
-                            handlers.showSuggestions();
-                        }
-                    });
-                }
+                dom.suggestionTabs?.addEventListener('click', (e) => {
+                    const tab = e.target.closest('.suggestion-tab');
+                    if (tab && !tab.classList.contains('active')) {
+                        dom.suggestionTabs.querySelector('.active').classList.remove('active');
+                        tab.classList.add('active');
+                        state.suggestionViewMode = tab.dataset.type;
+                        handlers.showSuggestions();
+                    }
+                });
 
-                if (dom.clearHistoryBtn) {
-                    dom.clearHistoryBtn.addEventListener('click', () => {
-                        utils.showConfirmModal('确定要清空所有搜索历史记录吗？此操作无法撤销。', () => {
-                            state.userData.searchHistory = [];
-                            core.saveUserData();
-                            handlers.showSuggestions();
-                            utils.showAlert('搜索历史已清空。');
-                        });
+                dom.clearHistoryBtn?.addEventListener('click', () => {
+                    utils.showConfirmModal('确定要清空所有搜索历史记录吗？此操作无法撤销。', () => {
+                        state.userData.searchHistory = [];
+                        core.saveUserData();
+                        handlers.showSuggestions();
+                        utils.showAlert('搜索历史已清空。');
                     });
-                }
+                });
 
-                if (dom.suggestionContent) {
-                     dom.suggestionContent.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const target = e.target;
+                dom.suggestionContent?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const target = e.target;
 
-                        if (target.classList.contains('remove-history-btn')) {
-                            const index = parseInt(target.dataset.index, 10);
-                            state.userData.searchHistory.splice(index, 1);
-                            core.saveUserData();
-                            render.suggestions(state.userData.searchHistory, 'history');
-                            return;
-                        }
-                        const item = target.closest('.suggestion-item');
-                        if (item) {
-                            const value = item.dataset.value;
-                            dom.searchInput.value = value;
-                            dom.searchSuggestionsContainer.classList.remove('visible');
-                            core.performSearch(value);
-                        }
-                    });
-                }
-                
-                dom.scopeFormCancel.addEventListener('click', () => {
-                    render.manageScopesModal();
+                    if (target.classList.contains('remove-history-btn')) {
+                        const index = parseInt(target.dataset.index, 10);
+                        state.userData.searchHistory.splice(index, 1);
+                        core.saveUserData();
+                        render.suggestions(state.userData.searchHistory, 'history');
+                        return;
+                    }
+                    const item = target.closest('.suggestion-item');
+                    if (item) {
+                        const value = item.dataset.value;
+                        dom.searchInput.value = value;
+                        dom.searchSuggestionsContainer.classList.remove('visible');
+                        core.performSearch(value);
+                    }
                 });
                 
+                dom.scopeFormCancel.addEventListener('click', () => render.manageScopesModal());
                 dom.scopeSites.addEventListener('paste', (e) => {
                     e.preventDefault();
                     const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-                    const purifiedText = pastedText.split('\n').map(line => utils.purifyUrl(line)).join('\n');
-                    document.execCommand('insertText', false, purifiedText);
+                    document.execCommand('insertText', false, pastedText.split('\n').map(utils.purifyUrl).join('\n'));
                 });
-
-                dom.scopeSites.addEventListener('blur', (e) => {
-                    const currentText = e.target.value;
-                    const purifiedText = currentText.split('\n').map(line => utils.purifyUrl(line)).join('\n');
-                    e.target.value = purifiedText;
-                });
-
+                dom.scopeSites.addEventListener('blur', (e) => e.target.value = e.target.value.split('\n').map(utils.purifyUrl).join('\n'));
                 dom.scopeTimeRange.addEventListener('change', (e) => {
                     const value = e.target.value;
                     dom.scopeCustomDateRange.classList.toggle('hidden', !['custom', 'after', 'before'].includes(value));
@@ -4156,24 +4048,14 @@
                     dom.endDateContainer.classList.toggle('hidden', !['custom', 'before'].includes(value));
                 });
 
-                dom.engineFormCancel.addEventListener('click', () => {
-                    render.manageEnginesModal();
-                });
-
+                dom.engineFormCancel.addEventListener('click', () => render.manageEnginesModal());
                 dom.engineUrl.addEventListener('paste', (e) => {
                     e.preventDefault();
-                    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
-                    e.target.value = utils.formatSearchUrl(pastedText);
+                    e.target.value = utils.formatSearchUrl((e.clipboardData || window.clipboardData).getData('text'));
                 });
 
-                dom.prevWallpaperBtn.addEventListener('click', () => {
-                    core.stopSlideshow();
-                    core.handlePrevWallpaper();
-                });
-                dom.nextWallpaperBtn.addEventListener('click', () => {
-                    core.stopSlideshow();
-                    core.handleNextWallpaper();
-                });
+                dom.prevWallpaperBtn.addEventListener('click', () => { core.stopSlideshow(); core.handlePrevWallpaper(); });
+                dom.nextWallpaperBtn.addEventListener('click', () => { core.stopSlideshow(); core.handleNextWallpaper(); });
                 dom.playPauseWallpaperBtn.addEventListener('click', core.toggleSlideshow);
                 dom.downloadWallpaperBtn.addEventListener('click', core.handleDownloadWallpaper);
                 dom.toggleWatermarkBtn.addEventListener('click', () => {
@@ -4183,18 +4065,15 @@
                 });
                 dom.wallpaperGalleryTrigger.addEventListener('click', core.toggleWallpaperGallery);
                 
-                if (dom.wallpaperGalleryCategoriesContainer) {
-                    dom.wallpaperGalleryCategoriesContainer.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const btn = e.target.closest('.wallpaper-gallery-category-btn');
-                        if (btn && !btn.classList.contains('active')) {
-                            state.activeWallpaperGalleryCategory = btn.dataset.category;
-                            state.currentWallpaperPage = 1;
-                            render.wallpaperGalleryCategories();
-                            render.wallpaperGallery(true);
-                        }
-                    });
-                }
+                dom.wallpaperGalleryCategoriesContainer?.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.wallpaper-gallery-category-btn');
+                    if (btn && !btn.classList.contains('active')) {
+                        state.activeWallpaperGalleryCategory = btn.dataset.category;
+                        state.currentWallpaperPage = 1;
+                        render.wallpaperGalleryCategories();
+                        render.wallpaperGallery(true);
+                    }
+                });
 
                 dom.wallpaperGalleryGrid.addEventListener('click', (e) => {
                     const item = e.target.closest('.wallpaper-gallery-item');
@@ -4207,13 +4086,9 @@
                 dom.wallpaperContainer.addEventListener('mousemove', () => {
                     dom.wallpaperContainer.classList.add('controls-visible');
                     clearTimeout(state.controlsTimeout);
-                    state.controlsTimeout = setTimeout(() => {
-                        dom.wallpaperContainer.classList.remove('controls-visible');
-                    }, 3000);
+                    state.controlsTimeout = setTimeout(() => dom.wallpaperContainer.classList.remove('controls-visible'), 3000);
                 });
-                dom.wallpaperContainer.addEventListener('mouseleave', () => {
-                    dom.wallpaperContainer.classList.remove('controls-visible');
-                });
+                dom.wallpaperContainer.addEventListener('mouseleave', () => dom.wallpaperContainer.classList.remove('controls-visible'));
                 
                 dom.wallpaperGalleryPanel.addEventListener('scroll', () => {
                     if (state.isLoadingMoreWallpapers) return;
@@ -4229,17 +4104,13 @@
             // 应用初始化
             // =================================================================
             const init = async () => {
-                // 缓存 DOM 元素
                 DOMElementsToCache.forEach(id => {
                     const camelCaseId = id.replace(/-(\w)/g, (_, c) => c.toUpperCase());
                     dom[camelCaseId] = document.getElementById(id);
                 });
                 dom.body = document.body;
                 
-                // FIX: 在应用加载时，如果未配置Supabase，则显示一个用户友好的弹窗提示。
-                // 这样用户就不需要打开开发者控制台来发现问题。
                 if (!supabase) {
-                    // 使用 pre-wrap 来保留换行符
                     dom.customAlertMessage.style.whiteSpace = 'pre-wrap';
                     utils.showAlert(
                         '后端服务未配置！\n\n请在 HTML 代码的 <script> 部分找到 SUPABASE_CONFIG 变量，并填入您自己的 Supabase 项目 URL 和 Anon Key。',
@@ -4247,17 +4118,12 @@
                     );
                 }
 
-                // 初始化本地存储
-                storage.init();
-
-                // 渲染静态菜单
                 render.aiTools();
                 render.themes();
                 render.shapeMenu();
                 render.dockControls();
                 render.wallpaperGalleryCategories();
                 
-                // 设置 Supabase 认证状态监听器
                 if (supabase) {
                     supabase.auth.onAuthStateChange(async (event, session) => {
                         const user = session?.user || null;
@@ -4266,27 +4132,20 @@
                         
                         console.log(`Auth event: ${event}`, session);
                         
-                        // [FIX 2] If user signs out, clear local storage and reset to default.
-                        // This prevents loading a stale/corrupted local state.
                         if (event === 'SIGNED_OUT') {
-                            console.log("用户已登出，重置为默认本地数据。");
-                            // Clear local storage by setting it to the default state
                             await storage.set(STATIC_CONFIG.DEFAULT_USER_DATA);
                         }
 
                         render.userActions();
-                        await core.loadUserData(); // 登录/退出后重新加载数据
+                        await core.loadUserData();
                     });
                 } else {
-                    // 如果没有配置 Supabase，则直接加载本地数据
                     await core.loadUserData();
                 }
                 
-                // 启动时钟和其他定时器
                 core.updateClock();
                 setInterval(core.updateClock, 1000);
 
-                // 注册所有事件监听器
                 addEventListeners();
             };
 
