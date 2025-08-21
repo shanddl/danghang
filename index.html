@@ -3651,6 +3651,27 @@
                     e.preventDefault();
                     const form = e.target;
 
+                    if (form.id === 'add-category-form') {
+                        const categoryNameInput = document.getElementById('category-name');
+                        const newCategory = categoryNameInput.value.trim();
+
+                        if (!newCategory) {
+                            utils.showAlert('分类名称不能为空！');
+                            return;
+                        }
+                        if (state.userData.navCategories.includes(newCategory)) {
+                            utils.showAlert('该分类已存在！');
+                            return;
+                        }
+
+                        state.userData.navCategories.push(newCategory);
+                        await core.saveUserData();
+                        render.dockCategories(); // Re-render the dock to show the new category
+                        dom.addCategoryModal.classList.remove('visible');
+                        form.reset();
+                        return;
+                    }
+
                     if (form.id === 'search-form') {
                        core.performSearch(dom.searchInput.value.trim());
                        return;
