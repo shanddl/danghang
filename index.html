@@ -2075,17 +2075,17 @@
 
                             // Safely merge arrays
                             if (Array.isArray(dataToLoad.navItems)) {
-                                mergedData.navItems = dataToLoad.navItems.filter(item => item && item.url && item.name).map(item => ({
+                                mergedData.navItems = dataToLoad.navItems.filter(item => item && typeof item === 'object' && item.name && item.url).map(item => ({
                                     ...defaultData.navItems[0], // provides a default structure
                                     ...item
                                 }));
                             }
 
                             if (Array.isArray(dataToLoad.searchEngines)) {
-                                const userEngines = dataToLoad.searchEngines.filter(e => e && e.id && e.url);
+                                const userEngines = dataToLoad.searchEngines.filter(e => e && e.id && e.name && e.url);
                                 const finalEngines = [...userEngines];
                                 defaultData.searchEngines.forEach(defaultEngine => {
-                                    if (!userEngines.some(userEngine => userEngine.id === defaultEngine.id)) {
+                                    if (!finalEngines.some(userEngine => userEngine.id === defaultEngine.id)) {
                                         finalEngines.push(defaultEngine);
                                     }
                                 });
@@ -2097,7 +2097,7 @@
                             mergedData.searchScopes = Array.isArray(dataToLoad.searchScopes) ? dataToLoad.searchScopes : defaultData.searchScopes;
 
                             // Final check on active engine
-                            if (!mergedData.searchEngines.find(e => e.id === mergedData.activeSearchEngineId)) {
+                            if (!mergedData.searchEngines.some(e => e.id === mergedData.activeSearchEngineId)) {
                                 mergedData.activeSearchEngineId = mergedData.searchEngines[0]?.id || defaultData.activeSearchEngineId;
                             }
 
