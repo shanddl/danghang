@@ -876,7 +876,7 @@
             font-size: 13px;
         }
         
-        #manage-scopes-modal .modal-content, #manage-engines-modal .modal-content {
+        #manage-scopes-modal .modal-content, #manage-engines-modal .modal-content, #advanced-settings-modal .modal-content {
             max-width: 550px;
             max-height: 80vh;
         }
@@ -1315,6 +1315,55 @@
             display: none;
         }
 
+        /* Wallhaven Filter Bar Styles */
+        #wallhaven-filter-bar {
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        #wallhaven-search-input {
+            background: var(--bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 16px;
+            padding: 6px 12px;
+            font-size: 13px;
+            flex-grow: 1;
+            min-width: 150px;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .filter-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            color: var(--text-primary);
+        }
+        #wallhaven-apply-filter-btn {
+            background: var(--blue);
+            color: var(--bg);
+            border: none;
+            border-radius: 16px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.2s ease;
+        }
+        #wallhaven-apply-filter-btn:hover {
+            opacity: 0.85;
+        }
+
+
         .wallpaper-gallery-category-btn {
             border: none;
             background: rgba(0,0,0,0.2);
@@ -1433,6 +1482,11 @@
             }
             #wallpaper-gallery-categories-container {
                 padding: 70px 10px 15px;
+            }
+            #wallhaven-filter-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
             }
         }
 
@@ -1804,6 +1858,25 @@
             </div>
         </div>
     </div>
+    
+    <div id="advanced-settings-modal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content">
+            <h3>高级设置</h3>
+            <form id="advanced-settings-form">
+                <div class="form-group">
+                    <label for="proxy-url">反向代理地址</label>
+                    <input type="text" id="proxy-url" placeholder="例如: https://corsproxy.io/?">
+                    <small style="color: var(--text-secondary); font-size: 12px; margin-top: 5px; display: block;">
+                        用于解决部分地区无法访问壁纸源的问题。请填写完整的代理 URL，并确保它以 '?' 或 '=' 结尾。
+                    </small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="modal-btn cancel" data-action="close-modal">取消</button>
+                    <button type="submit" class="modal-btn save">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <input type="file" id="import-file-input" class="hidden" accept=".json">
 
@@ -1835,6 +1908,7 @@
         <div class="context-menu-item" data-action="add-category">添加分类</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item" data-action="toggle-customize-panel">自定义布局</div>
+        <div class="context-menu-item" data-action="advanced-settings">高级设置</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item" data-action="refresh-page">刷新</div>
     </div>
@@ -1843,6 +1917,22 @@
         <div id="wallpaper-gallery-trigger"></div>
         <div id="wallpaper-gallery-panel">
             <div id="wallpaper-gallery-categories-container"></div>
+            <!-- Wallhaven Filter Bar HTML -->
+            <div id="wallhaven-filter-bar" class="hidden">
+                <input type="text" id="wallhaven-search-input" placeholder="输入关键词 (例如: landscape)">
+                <div class="filter-group">
+                    <span>分类:</span>
+                    <label><input type="checkbox" class="wallhaven-category-cb" value="100" checked> 综合</label>
+                    <label><input type="checkbox" class="wallhaven-category-cb" value="010"> 动漫</label>
+                    <label><input type="checkbox" class="wallhaven-category-cb" value="001"> 人物</label>
+                </div>
+                <div class="filter-group">
+                    <span>纯净度:</span>
+                    <label><input type="checkbox" class="wallhaven-purity-cb" value="100" checked> 安全</label>
+                    <label><input type="checkbox" class="wallhaven-purity-cb" value="010"> 擦边</label>
+                </div>
+                <button id="wallhaven-apply-filter-btn">应用滤镜</button>
+            </div>
             <div id="wallpaper-gallery-grid"></div>
             <div id="gallery-loader" class="hidden">正在加载更多...</div>
         </div>
@@ -1921,22 +2011,18 @@
                     theme: 'auto', 
                     isDockPinned: false, 
                     showWatermark: true,
+                    proxyUrl: 'https://corsproxy.io/?'
                 },
                 THEMES: ['aurora', 'sunset', 'ocean', 'neon', 'forest', 'cosmic'],
                 WALLPAPER_SOURCES: {
                     'bing': { name: '必应每日', type: 'bing_api' },
-                    'unsplash_landscape': { name: '随机风景', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?landscape,nature' },
-                    'unsplash_city': { name: '随机城市', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?city,architecture' },
-                    'unsplash_tech': { name: '随机科技', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?technology,abstract' },
-                    'unsplash_animal': { name: '随机动物', type: 'unsplash', url: 'https://source.unsplash.com/1920x1080/?animal,wildlife' },
-                    'btstu_fengjing': { name: '风景壁纸', type: 'btstu', url: 'https://api.btstu.cn/sjbz/api.php?lx=fengjing&format=json' },
-                    'btstu_dongman': { name: '动漫壁纸', type: 'btstu', url: 'https://api.btstu.cn/sjbz/api.php?lx=dongman&format=json' }
+                    'wallhaven': { name: 'Wallhaven', type: 'wallhaven_api', apiKey: 'ReuBMSu675eHEPELUWIgamtFH3eK5Ram' }
                 },
                 CONSTANTS: {
                     ALL_CATEGORIES: '全部',
                     NEW_CATEGORY_VALUE: '--new--',
                     STORAGE_KEY: '灵动窗用户数据',
-                    WALLPAPERS_PER_PAGE: 30,
+                    WALLPAPERS_PER_PAGE: 24, 
                     DEFAULT_SCOPE_ID: 'default-web-search'
                 }
             };
@@ -1970,6 +2056,12 @@
                 currentWallpaperPage: 1,
                 userData: JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)),
                 activeSearchPills: [],
+                wallhavenPage: 1,
+                wallhavenFilters: {
+                    query: '',
+                    categories: '100', // Default to General
+                    purity: '100' // Default to SFW
+                },
             };
 
             // =================================================================
@@ -2008,7 +2100,9 @@
                 'search-scope-btn', 'search-scope-menu',
                 'engine-btn', 'search-engine-menu', 'manage-engines-modal', 'engine-list', 
                 'manage-engines-form-container', 'engine-form-title', 'manage-engines-form',
-                'engine-edit-id', 'engine-name', 'engine-url', 'engine-icon-url', 'engine-form-cancel'
+                'engine-edit-id', 'engine-name', 'engine-url', 'engine-icon-url', 'engine-form-cancel',
+                'wallhaven-filter-bar', 'wallhaven-search-input', 'wallhaven-apply-filter-btn',
+                'advanced-settings-modal', 'advanced-settings-form', 'proxy-url'
             ];
 
             // =================================================================
@@ -2391,7 +2485,7 @@
                         if (source.type === 'bing_api') {
                             if (state.wallpaperCache[cacheKey]) return state.wallpaperCache[cacheKey];
                             const url = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=${index}&n=1&mkt=zh-CN`;
-                            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
                             if (!response.ok) throw new Error(`Bing API fetch failed: ${response.status}`);
                             const text = await response.text();
                             if (!text) return null;
@@ -2400,19 +2494,16 @@
                             const imageData = { url: imageUrl, info: bingData.images[0].copyright, category: category, index: index };
                             state.wallpaperCache[cacheKey] = imageData;
                             return imageData;
-                        } else if (source.type === 'unsplash') {
-                            const imageUrl = `${source.url}&random=${Date.now() + index}`;
-                            return { url: imageUrl, info: source.name, category: category, index: index };
-                        } else if (source.type === 'btstu') {
-                            const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(source.url)}`);
-                            if (!response.ok) throw new Error(`btstu API fetch failed: ${response.status}`);
-                            const text = await response.text();
-                            if (!text) return null;
-                            const data = JSON.parse(text);
-                            if (data.code === "200" && data.imgurl) {
-                                return { url: data.imgurl.replace(/\\/g, ''), info: source.name, category: category, index: index };
+                        } else if (source.type === 'wallhaven_api') {
+                            const url = `https://wallhaven.cc/api/v1/search?apikey=${source.apiKey}&sorting=random`;
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
+                            if (!response.ok) throw new Error(`Wallhaven API fetch failed: ${response.status}`);
+                            const wallhavenData = await response.json();
+                            if (wallhavenData.data && wallhavenData.data.length > 0) {
+                                const image = wallhavenData.data[0];
+                                return { url: image.path, info: `Wallhaven ID: ${image.id}`, category: category, index: image.id };
                             }
-                            throw new Error('btstu API returned invalid data');
+                            throw new Error('Wallhaven API returned no images');
                         }
                     } catch (error) {
                         console.error(`Failed to get wallpaper for category "${category}":`, error);
@@ -2505,7 +2596,7 @@
                     const currentUrl = currentBg.slice(5, -2);
 
                     try {
-                        const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(currentUrl)}`);
+                        const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(currentUrl)}`);
                         if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
                         const blob = await response.blob();
                         const url = window.URL.createObjectURL(blob);
@@ -2530,6 +2621,7 @@
                         panel.classList.remove('visible');
                     } else {
                         state.currentWallpaperPage = 1;
+                        state.wallhavenPage = 1; // 重置 Wallhaven 页码
                         state.isLoadingMoreWallpapers = false;
                         panel.classList.add('visible');
                         render.wallpaperGallery(true);
@@ -2741,6 +2833,12 @@
                     
                     container.innerHTML = '';
                     container.appendChild(fragment);
+
+                    // Show/hide filter bar
+                    const filterBar = dom.wallhavenFilterBar;
+                    if (filterBar) {
+                        filterBar.classList.toggle('hidden', state.activeWallpaperGalleryCategory !== 'wallhaven');
+                    }
                 },
 
                 wallpaperInfo: (info) => {
@@ -2753,43 +2851,79 @@
                         dom.wallpaperGalleryGrid.innerHTML = '';
                         state.galleryUrlCache.clear();
                         dom.wallpaperGalleryPanel.scrollTop = 0;
+                        state.wallhavenPage = 1;
+                        state.currentWallpaperPage = 1;
                     }
 
                     dom.galleryLoader.classList.remove('hidden');
+                    dom.galleryLoader.textContent = '正在加载更多...';
                     state.isLoadingMoreWallpapers = true;
 
                     const activeCategory = state.activeWallpaperGalleryCategory;
                     const fragment = document.createDocumentFragment();
                     
-                    let sourcesToFetch = [];
-                    if (activeCategory === 'all') {
-                        for (let i = 0; i < 4; i++) { sourcesToFetch.push({ type: 'bing_api', index: i }); }
-                        Object.entries(STATIC_CONFIG.WALLPAPER_SOURCES).forEach(([key, source]) => {
-                            if (source.type !== 'bing_api') {
-                                for (let i = 0; i < 4; i++) {
-                                    sourcesToFetch.push({ type: source.type, category: key, index: Math.random(), url: source.url, info: source.name });
-                                }
-                            }
-                        });
-                    } else {
-                        const source = STATIC_CONFIG.WALLPAPER_SOURCES[activeCategory];
-                        const perPage = source.type === 'bing_api' ? 8 : STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE;
-                        for (let i = 0; i < perPage; i++) {
-                             const uniqueIndex = (state.currentWallpaperPage - 1) * perPage + i;
-                             sourcesToFetch.push({ type: source.type, category: activeCategory, index: uniqueIndex, url: source.url, info: source.name });
-                        }
-                    }
+                    let imagesToRender = [];
 
-                    const promises = sourcesToFetch.map(source => core.getWallpaperData(source.index, source.category || activeCategory));
-                    const imagesToRender = (await Promise.all(promises)).filter(Boolean);
+                    if (activeCategory === 'wallhaven') {
+                        const source = STATIC_CONFIG.WALLPAPER_SOURCES.wallhaven;
+                        const filters = state.wallhavenFilters;
+                        let url = `https://wallhaven.cc/api/v1/search?apikey=${source.apiKey}&page=${state.wallhavenPage}`;
+                        if (filters.query) url += `&q=${encodeURIComponent(filters.query)}`;
+                        if (filters.categories !== '000') url += `&categories=${filters.categories}`;
+                        if (filters.purity !== '000') url += `&purity=${filters.purity}`;
+                        
+                        try {
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
+                            const data = await response.json();
+                            if (data.data && data.data.length > 0) {
+                                imagesToRender = data.data.map(img => ({
+                                    url: img.thumbs.large,
+                                    fullUrl: img.path,
+                                    info: `Wallhaven ID: ${img.id}`,
+                                    category: 'wallhaven',
+                                    index: img.id
+                                }));
+                            } else if (state.wallhavenPage > 1) {
+                                dom.galleryLoader.textContent = '没有更多壁纸了';
+                                state.isLoadingMoreWallpapers = true; // Prevent further loading
+                                return;
+                            }
+                        } catch (e) {
+                            console.error("Failed to fetch from Wallhaven:", e);
+                            dom.galleryLoader.textContent = '加载 Wallhaven 壁纸失败';
+                            state.isLoadingMoreWallpapers = false;
+                            return;
+                        }
+                    } else {
+                         let sourcesToFetch = [];
+                        if (activeCategory === 'all') {
+                            for (let i = 0; i < 4; i++) { sourcesToFetch.push({ type: 'bing_api', index: i }); }
+                            Object.entries(STATIC_CONFIG.WALLPAPER_SOURCES).forEach(([key, source]) => {
+                                if (source.type !== 'bing_api' && source.type !== 'wallhaven_api') {
+                                    for (let i = 0; i < 4; i++) {
+                                        sourcesToFetch.push({ type: source.type, category: key, index: Math.random(), url: source.url, info: source.name });
+                                    }
+                                }
+                            });
+                        } else {
+                            const source = STATIC_CONFIG.WALLPAPER_SOURCES[activeCategory];
+                            const perPage = source.type === 'bing_api' ? 8 : STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE;
+                            for (let i = 0; i < perPage; i++) {
+                                const uniqueIndex = (state.currentWallpaperPage - 1) * perPage + i;
+                                sourcesToFetch.push({ type: source.type, category: activeCategory, index: uniqueIndex, url: source.url, info: source.name });
+                            }
+                        }
+                        const promises = sourcesToFetch.map(source => core.getWallpaperData(source.index, source.category || activeCategory));
+                        imagesToRender = (await Promise.all(promises)).filter(Boolean);
+                    }
                     
-                    if (imagesToRender.length === 0 && state.currentWallpaperPage > 1) {
-                        dom.galleryLoader.textContent = '没有更多壁纸了';
-                        state.isLoadingMoreWallpapers = true;
+                    if (imagesToRender.length === 0 && (state.currentWallpaperPage === 1 || state.wallhavenPage === 1)) {
+                        dom.galleryLoader.textContent = '没有找到符合条件的壁纸';
+                        state.isLoadingMoreWallpapers = true; // Prevent further loading
                         return;
                     }
 
-                    imagesToRender.forEach(({ url, info, category, index }) => {
+                    imagesToRender.forEach(({ url, info, category, index, fullUrl }) => {
                         if (state.galleryUrlCache.has(url)) return;
                         state.galleryUrlCache.add(url);
 
@@ -2797,7 +2931,7 @@
                         item.className = 'wallpaper-gallery-item';
                         item.dataset.category = category;
                         item.dataset.index = index;
-                        item.dataset.url = url;
+                        item.dataset.url = fullUrl || url;
                         item.innerHTML = `<img src="${url}" alt="${info || 'Wallpaper'}" loading="lazy" onerror="this.parentElement.style.display='none'">`;
                         fragment.appendChild(item);
                     });
@@ -3409,7 +3543,7 @@
             const handlers = {
                 fetchBingSuggestions: async (query) => {
                     const url = `https://api.bing.com/osjson.aspx?query=${encodeURIComponent(query)}`;
-                    const response = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`);
+                    const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
                     if (!response.ok) throw new Error('Network response was not ok.');
                     const data = await response.json();
                     return data[1]; 
@@ -3544,6 +3678,10 @@
                                 break;
                             case 'toggle-customize-panel':
                                 dom.sizeSliderPanel.classList.toggle('visible');
+                                break;
+                            case 'advanced-settings':
+                                dom.proxyUrl.value = state.userData.proxyUrl || '';
+                                dom.advancedSettingsModal.classList.add('visible');
                                 break;
                             case 'show-auth':
                                 state.isRegisterMode = false;
@@ -3689,8 +3827,6 @@
                     e.preventDefault();
                     const form = e.target;
 
-                    // BUG FIX: The search form submission is now handled by other events.
-                    // We prevent its default action here but do nothing else to avoid side effects.
                     if (form.id === 'search-form') {
                         return;
                     }
@@ -3732,6 +3868,19 @@
                     if (form.id === 'forgot-password-form') {
                         const email = document.getElementById('forgot-email-input').value;
                         await core.handlePasswordReset(email);
+                        return;
+                    }
+
+                    if (form.id === 'advanced-settings-form') {
+                        const newProxyUrl = dom.proxyUrl.value.trim();
+                        if (newProxyUrl) {
+                            state.userData.proxyUrl = newProxyUrl;
+                            await core.saveUserData();
+                            utils.showAlert('代理地址已更新！');
+                            dom.advancedSettingsModal.classList.remove('visible');
+                        } else {
+                            utils.showAlert('代理地址不能为空。');
+                        }
                         return;
                     }
                     
@@ -4170,6 +4319,7 @@
                     if (btn && !btn.classList.contains('active')) {
                         state.activeWallpaperGalleryCategory = btn.dataset.category;
                         state.currentWallpaperPage = 1;
+                        state.wallhavenPage = 1;
                         render.wallpaperGalleryCategories();
                         render.wallpaperGallery(true);
                     }
@@ -4194,9 +4344,39 @@
                     if (state.isLoadingMoreWallpapers) return;
                     const { scrollTop, scrollHeight, clientHeight } = dom.wallpaperGalleryPanel;
                     if (scrollHeight - scrollTop - clientHeight < 200) {
-                        state.currentWallpaperPage++;
+                        if (state.activeWallpaperGalleryCategory === 'wallhaven') {
+                            state.wallhavenPage++;
+                        } else {
+                            state.currentWallpaperPage++;
+                        }
                         render.wallpaperGallery();
                     }
+                });
+
+                dom.wallhavenApplyFilterBtn.addEventListener('click', () => {
+                    const query = dom.wallhavenSearchInput.value.trim();
+                    
+                    const getBinaryString = (selector) => {
+                        const cbs = document.querySelectorAll(selector);
+                        let binary = [0,0,0];
+                        cbs.forEach(cb => {
+                            if (cb.checked) {
+                                if (cb.value === '100') binary[0] = 1;
+                                if (cb.value === '010') binary[1] = 1;
+                                if (cb.value === '001') binary[2] = 1;
+                            }
+                        });
+                        return binary.join('');
+                    };
+
+                    const categories = getBinaryString('.wallhaven-category-cb');
+                    const purity = getBinaryString('.wallhaven-purity-cb');
+                    
+                    state.wallhavenFilters.query = query;
+                    state.wallhavenFilters.categories = categories;
+                    state.wallhavenFilters.purity = purity;
+
+                    render.wallpaperGallery(true);
                 });
             }
             
