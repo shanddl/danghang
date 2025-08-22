@@ -221,7 +221,6 @@
             margin: 0 8px;
         }
 
-        /* REVERTED: Clock styles for inside search bar */
         #search-clock {
             position: absolute;
             top: 50%;
@@ -240,7 +239,6 @@
             font-size: 12px;
             color: var(--text-secondary);
         }
-        /* NEW: Rule to hide clock when pills or text are present */
         .search-container.has-content #search-clock {
             opacity: 0;
         }
@@ -363,7 +361,6 @@
             color: var(--blue);
         }
 
-        /* Search Pills Implementation */
         #search-input-container {
             display: flex;
             align-items: center;
@@ -371,7 +368,7 @@
             gap: 4px;
             width: 100%;
             height: 40px;
-            padding: 0 45px 0 40px; /* Space for scope and search buttons */
+            padding: 0 45px 0 40px;
             cursor: text;
         }
         #real-search-input {
@@ -381,7 +378,7 @@
             color: var(--text-primary);
             font-size: 14px;
             outline: none;
-            min-width: 100px; /* Minimum width for typing */
+            min-width: 100px;
             height: 100%;
         }
         .search-pill {
@@ -513,7 +510,7 @@
             justify-content: center;
             align-items: flex-end;
             padding-bottom: 0;
-            height: 50px; /* Increased hover area */
+            height: 50px;
             transform: scale(1);
             opacity: 1;
             transition: transform 2.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s 2.5s;
@@ -525,14 +522,14 @@
             left: 50%; 
             background: transparent;
             border-radius: 22px;
-            padding: 8px 8px; /* Adjusted padding for alignment */
+            padding: 8px 8px;
             display: flex;
             flex-direction: column;
             align-items: center;
             pointer-events: all;
             transform-origin: bottom center;
             width: auto;
-            transform: translate(-50%, 100%); /* Hidden state */
+            transform: translate(-50%, 100%);
             transition: transform 0.5s var(--rebound-easing);
         }
 
@@ -600,7 +597,6 @@
             transition: transform 2.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
-        /* REVERTED: Main content layout */
         main {
             padding: 80px 16px 150px;
             overflow-y: auto; height: 100%;
@@ -609,7 +605,6 @@
             justify-content: center;
         }
 
-        /* Nav Grids */
         #nav-grid {
             display: flex;
             flex-wrap: wrap;
@@ -1141,7 +1136,7 @@
             transform: scale(1.05);
             visibility: hidden;
             transition: opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1), transform 2.5s cubic-bezier(0.4, 0, 0.2, 1);
-            --wallpaper-url: ''; /* 新增：用于交叉淡入的CSS变量 */
+            --wallpaper-url: '';
         }
         #wallpaper-container.visible {
             opacity: 1;
@@ -1174,7 +1169,7 @@
             transition-duration: 0.5s;
         }
         body.theater-mode-active > #bottom-dock-wrapper {
-            z-index: 40; /* Lower than wallpaper container */
+            z-index: 40;
         }
         
         #wallpaper-controls {
@@ -1236,7 +1231,7 @@
         #wallpaper-info {
             position: absolute;
             bottom: 20px;
-            right: 20px; /* 改为右下角 */
+            right: 20px;
             color: white;
             font-size: 13px;
             background-color: rgba(0,0,0,0.3);
@@ -1503,11 +1498,11 @@
                             <input id="real-search-input" placeholder=" " autocomplete="off">
                          </div>
 
-                         <button type="submit" class="search-btn" aria-label="搜索">
+                         <!-- BUG FIX: Changed type from "submit" to "button" -->
+                         <button type="button" id="search-submit-btn" class="search-btn" aria-label="搜索">
                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
                          </button>
                      </form>
-                     <!-- REVERTED: Clock moved back here -->
                      <div id="search-clock"></div>
                      <div id="search-suggestions-container" class="dropdown-menu">
                         <div id="suggestion-tabs">
@@ -1974,7 +1969,7 @@
                 isLoadingMoreWallpapers: false,
                 currentWallpaperPage: 1,
                 userData: JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)),
-                activeSearchPills: [], // NEW: State for search pills
+                activeSearchPills: [],
             };
 
             // =================================================================
@@ -1996,7 +1991,7 @@
                 'search-results-container', 'search-stats', 'search-results-list',
                 'custom-alert-modal', 'custom-alert-title', 'custom-alert-message',
                 'search-clock', 'search-container', 'search-form', 
-                'search-input-container', 'real-search-input',
+                'search-input-container', 'real-search-input', 'search-submit-btn',
                 'search-suggestions-container', 'suggestion-tabs', 'suggestion-content', 'clear-history-btn',
                 'ai-btn', 'ai-dropdown-menu', 'theme-btn', 'theme-dropdown-menu',
                 'context-menu', 'main-context-menu',
@@ -2057,17 +2052,17 @@
                                     .eq('user_id', state.currentUser.id)
                                     .single();
 
-                                if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
+                                if (error && error.code !== 'PGRST116') {
                                     throw error;
                                 }
                                 if (data) {
                                     dataToLoad = data.data;
                                     console.log("成功从 Supabase 加载数据。");
-                                    await storage.set(dataToLoad); // Sync to local storage
+                                    await storage.set(dataToLoad);
                                 } else {
                                     console.log("Supabase 中无用户数据，使用默认数据初始化。");
                                     dataToLoad = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                                    await core.saveUserData(dataToLoad); // Create the initial record in Supabase
+                                    await core.saveUserData(dataToLoad);
                                 }
                             } catch (error) {
                                 console.error("从 Supabase 加载数据失败，将使用本地数据:", error);
@@ -2083,12 +2078,10 @@
                         if (!dataToLoad || typeof dataToLoad !== 'object') {
                             state.userData = defaultData;
                         } else {
-                            // Deep merge user data with defaults to ensure all keys exist
                             const mergedData = { ...defaultData };
                             for (const key in defaultData) {
                                 if (dataToLoad[key] !== undefined) {
                                     if (Array.isArray(defaultData[key])) {
-                                        // Ensure arrays are valid
                                         mergedData[key] = Array.isArray(dataToLoad[key]) ? dataToLoad[key] : defaultData[key];
                                     } else {
                                         mergedData[key] = dataToLoad[key];
@@ -2098,7 +2091,6 @@
                             state.userData = mergedData;
                         }
                         
-                        // If no local data and not logged in, save default data to local storage
                         if (!dataToLoad && !state.isLoggedIn) {
                             await core.saveUserData();
                         }
@@ -2113,7 +2105,6 @@
                 },
 
                 saveUserData: async (dataToSave = state.userData) => {
-                    // Always save to local storage first for responsiveness
                     await storage.set(dataToSave);
                     console.log("数据已保存到本地存储。");
 
@@ -2220,7 +2211,6 @@
                 performSearch: (query) => {
                     if (!query && state.activeSearchPills.length === 0) return;
 
-                    // Save search history
                     if (query) {
                         state.userData.searchHistory = state.userData.searchHistory.filter(item => item !== query);
                         state.userData.searchHistory.unshift(query);
@@ -2232,7 +2222,6 @@
 
                     let finalQuery = query;
                     
-                    // Build query from pills
                     const queryParts = new Map();
                     state.activeSearchPills.forEach(pill => {
                         if (queryParts.has(pill.type)) {
@@ -2968,7 +2957,6 @@
                     menu.innerHTML = '';
                     const fragment = document.createDocumentFragment();
 
-                    // "Clear All" button
                     const clearItem = document.createElement('a');
                     clearItem.href = '#';
                     clearItem.className = 'dropdown-item';
@@ -3432,7 +3420,6 @@
                     return data.s;
                 },
                 
-                // NEW: Function to update search container state
                 updateSearchContainerState: () => {
                     const hasPills = state.activeSearchPills.length > 0;
                     const hasInput = dom.realSearchInput.value.length > 0;
@@ -3500,7 +3487,7 @@
                         }
                         
                         render.searchPills();
-                        return; // Keep menu open
+                        return;
                     }
 
                     if (dropdownToggle) {
@@ -3702,6 +3689,12 @@
                     e.preventDefault();
                     const form = e.target;
 
+                    // BUG FIX: The search form submission is now handled by other events.
+                    // We prevent its default action here but do nothing else to avoid side effects.
+                    if (form.id === 'search-form') {
+                        return;
+                    }
+
                     if (form.id === 'add-category-form') {
                         const categoryNameInput = document.getElementById('category-name');
                         const newCategory = categoryNameInput.value.trim();
@@ -3721,11 +3714,6 @@
                         dom.addCategoryModal.classList.remove('visible');
                         form.reset();
                         return;
-                    }
-
-                    if (form.id === 'search-form') {
-                       core.performSearch(dom.realSearchInput.value.trim());
-                       return;
                     }
                     
                     if (form.id === 'auth-form') {
@@ -4055,36 +4043,56 @@
                     dom.realSearchInput.focus();
                 });
 
-                if (dom.realSearchInput) {
-                    dom.realSearchInput.addEventListener('focus', () => {
-                        dom.searchContainer.classList.add('focused');
-                        if (!dom.searchScopeMenu.classList.contains('visible')) {
-                            handlers.showSuggestions();
+                // BUG FIX: Add click listener to the new search button
+                dom.searchSubmitBtn.addEventListener('click', () => {
+                    core.performSearch(dom.realSearchInput.value.trim());
+                });
+
+                // BUG FIX: Refactored keydown listener
+                dom.realSearchInput.addEventListener('keydown', (e) => {
+                    const suggestionsVisible = dom.searchSuggestionsContainer?.classList.contains('visible');
+                    
+                    if (e.key === 'Enter') {
+                        e.preventDefault(); // Always prevent default form submission on Enter
+                        if (suggestionsVisible && state.activeSuggestionIndex > -1) {
+                            const items = dom.suggestionContent.querySelectorAll('.suggestion-item');
+                            if (items[state.activeSuggestionIndex]) {
+                                items[state.activeSuggestionIndex].click();
+                            }
+                        } else {
+                            core.performSearch(dom.realSearchInput.value.trim());
                         }
-                    });
-                    dom.realSearchInput.addEventListener('blur', () => dom.searchContainer.classList.remove('focused'));
-                    dom.realSearchInput.addEventListener('input', () => {
-                        handlers.updateSearchContainerState();
-                        state.activeSuggestionIndex = -1;
-                        state.suggestionViewMode = 'suggestion';
-                        handlers.debouncedShowSuggestions();
-                    });
-                    dom.realSearchInput.addEventListener('keydown', (e) => {
-                        if (!dom.searchSuggestionsContainer?.classList.contains('visible')) return;
+                        return;
+                    }
+
+                    if (suggestionsVisible) {
                         const items = dom.suggestionContent.querySelectorAll('.suggestion-item');
                         if (items.length === 0) return;
                         
                         let newIndex = state.activeSuggestionIndex;
                         if (e.key === 'ArrowDown') { e.preventDefault(); newIndex = (state.activeSuggestionIndex + 1) % items.length; }
                         else if (e.key === 'ArrowUp') { e.preventDefault(); newIndex = (state.activeSuggestionIndex - 1 + items.length) % items.length; }
-                        else if (e.key === 'Enter') { if (state.activeSuggestionIndex > -1) { e.preventDefault(); items[state.activeSuggestionIndex].click(); } return; }
                         else { return; }
                         
                         state.activeSuggestionIndex = newIndex;
                         items.forEach((item, index) => item.classList.toggle('active', index === newIndex));
                         if (state.activeSuggestionIndex > -1) { dom.realSearchInput.value = items[state.activeSuggestionIndex].dataset.value; }
-                    });
-                }
+                    }
+                });
+
+                dom.realSearchInput.addEventListener('focus', () => {
+                    dom.searchContainer.classList.add('focused');
+                    if (!dom.searchScopeMenu.classList.contains('visible')) {
+                        handlers.showSuggestions();
+                    }
+                });
+                dom.realSearchInput.addEventListener('blur', () => dom.searchContainer.classList.remove('focused'));
+                dom.realSearchInput.addEventListener('input', () => {
+                    handlers.updateSearchContainerState();
+                    state.activeSuggestionIndex = -1;
+                    state.suggestionViewMode = 'suggestion';
+                    handlers.debouncedShowSuggestions();
+                });
                 
                 dom.suggestionTabs?.addEventListener('click', (e) => {
                     const tab = e.target.closest('.suggestion-tab');
