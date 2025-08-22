@@ -220,7 +220,8 @@
             transition: all 0.3s ease;
             margin: 0 8px;
         }
-        
+
+        /* REVERTED: Clock styles for inside search bar */
         #search-clock {
             position: absolute;
             top: 50%;
@@ -239,8 +240,8 @@
             font-size: 12px;
             color: var(--text-secondary);
         }
-
-        .search-container.has-input #search-clock {
+        /* NEW: Rule to hide clock when pills or text are present */
+        .search-container.has-content #search-clock {
             opacity: 0;
         }
 
@@ -334,6 +335,7 @@
             cursor: pointer;
             opacity: 0;
             transition: opacity 0.2s ease, background-color 0.2s ease;
+            z-index: 2; /* Ensure it's above the pills */
         }
         #search-scope-btn svg {
             width: 16px;
@@ -361,39 +363,60 @@
             color: var(--blue);
         }
 
-        #active-scope-tag {
-            position: absolute;
-            left: 42px;
-            top: 50%;
-            transform: translateY(-50%);
+        /* Search Pills Implementation */
+        #search-input-container {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+            width: 100%;
+            height: 40px;
+            padding: 0 45px 0 40px; /* Space for scope and search buttons */
+            cursor: text;
+        }
+        #real-search-input {
+            flex-grow: 1;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            min-width: 100px; /* Minimum width for typing */
+            height: 100%;
+        }
+        .search-pill {
+            display: inline-flex;
+            align-items: center;
             background-color: rgba(138, 180, 248, 0.2);
             color: var(--blue);
-            padding: 3px 8px;
+            padding: 3px 4px 3px 8px;
             border-radius: 12px;
             font-size: 12px;
             font-weight: 500;
             white-space: nowrap;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease;
+            animation: fadeInScaleUp 0.2s ease;
         }
-        #active-scope-tag.visible {
+        .pill-close-btn {
+            background: none;
+            border: none;
+            color: var(--blue);
+            cursor: pointer;
+            margin-left: 4px;
+            padding: 0;
+            line-height: 1;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            opacity: 0.7;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+        }
+        .pill-close-btn:hover {
+            background-color: rgba(138, 180, 248, 0.3);
             opacity: 1;
-        }
-
-        #search-input {
-            width: 100%; height: 40px; border: none; padding: 0 45px;
-            font-size: 14px; outline: none; background: transparent; color: var(--text-primary);
-            text-align: center;
-            flex-grow: 1;
-            transition: padding-left 0.3s ease;
-        }
-        #search-input:focus, #search-input:not(:placeholder-shown) {
-            text-align: left;
-        }
-        
-        #search-input.has-scope {
-            /* Padding is now set dynamically via JS */
         }
         
         .search-btn {
@@ -477,7 +500,7 @@
         #suggestion-content::-webkit-scrollbar-thumb:hover { background-color: var(--blue); }
 
         /* * ================================================
-         * 动态船坞 (Dynamic Dock) - [MODIFIED]
+         * 动态船坞 (Dynamic Dock)
          * ================================================
          */
         #bottom-dock-wrapper {
@@ -577,6 +600,7 @@
             transition: transform 2.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 2.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
+        /* REVERTED: Main content layout */
         main {
             padding: 80px 16px 150px;
             overflow-y: auto; height: 100%;
@@ -689,7 +713,6 @@
             display: flex; justify-content: center; align-items: center; z-index: 1000;
             opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0s 0.3s;
         }
-        /* [FIXED] Ensure confirm modal is on top */
         #confirm-modal {
             z-index: 1001;
         }
@@ -935,7 +958,7 @@
         .hidden { display: none !important; }
 
         /* * ================================================
-         * 自定义布局面板 (Customize Panel) - [FIXED]
+         * 自定义布局面板 (Customize Panel)
          * ================================================
          */
         #size-slider-panel {
@@ -1126,7 +1149,6 @@
             visibility: visible;
         }
 
-        /* 新增：用于交叉淡入效果的伪元素 */
         #wallpaper-container::before {
             content: '';
             position: absolute;
@@ -1179,7 +1201,6 @@
             visibility: visible;
         }
         
-        /* Hide controls when gallery is open */
         #wallpaper-gallery-panel.visible ~ #wallpaper-controls {
             opacity: 0;
             visibility: hidden;
@@ -1207,7 +1228,6 @@
             fill: currentColor;
         }
         
-        /* 新增：水印按钮激活状态 */
         .wallpaper-btn#toggle-watermark-btn.active {
             background-color: rgba(138, 180, 248, 0.3);
             color: var(--blue);
@@ -1392,7 +1412,7 @@
                 width: 32px;
                 height: 32px;
             }
-            #search-container {
+            .search-container {
                 flex-grow: 1;
                 margin: 0 8px;
             }
@@ -1474,20 +1494,21 @@
 
                  <div id="search-container" class="search-container">
                      <form id="search-form" role="search">
-                         <div class="search-scope-container" style="position: relative;">
-                             <button type="button" id="search-scope-btn" aria-haspopup="true" aria-expanded="false" title="切换搜索范围 (Tab)">
-                                 <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg>
-                             </button>
-                             <div id="search-scope-menu" class="dropdown-menu"></div>
+                         <button type="button" id="search-scope-btn" aria-haspopup="true" aria-expanded="false" title="选择搜索范围">
+                             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg>
+                         </button>
+                         <div id="search-scope-menu" class="dropdown-menu"></div>
+                         
+                         <div id="search-input-container">
+                            <input id="real-search-input" placeholder=" " autocomplete="off">
                          </div>
-                         <div id="active-scope-tag"></div>
-                         <input id="search-input" placeholder=" " autocomplete="off">
+
                          <button type="submit" class="search-btn" aria-label="搜索">
                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
                          </button>
                      </form>
+                     <!-- REVERTED: Clock moved back here -->
                      <div id="search-clock"></div>
-                     <!-- [FIXED] Added missing search suggestions container -->
                      <div id="search-suggestions-container" class="dropdown-menu">
                         <div id="suggestion-tabs">
                             <div class="suggestion-tab-group">
@@ -1842,7 +1863,6 @@
             <button id="next-wallpaper-btn" class="wallpaper-btn" title="下一张">
                 <svg viewBox="0 0 24 24"><path d="M8.59 16.59L10 18l6-6-6-6-1.41 1.41L13.17 12z"></path></svg>
             </button>
-            <!-- 新增：水印开关按钮 -->
             <button id="toggle-watermark-btn" class="wallpaper-btn" title="显示/隐藏信息">
                 <svg viewBox="0 0 24 24"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path></svg>
             </button>
@@ -1858,19 +1878,18 @@
             'use strict';
 
             // =================================================================
-            // Supabase 配置 (已为您填好)
+            // Supabase 配置
             // =================================================================
             const SUPABASE_CONFIG = {
                 url: "https://efksqykktzdvxpflivhb.supabase.co", 
                 anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVma3NxeWtrdHpkdnhwZmxpdmhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU2NDMxNTksImV4cCI6MjA3MTIxOTE1OX0.mkgVqKBUQRZmtTwEadCiZPRW7KOKIvWYjhJo6AwyOiU",
             };
             
-            // 全局 Supabase 客户端实例
             let supabase = null;
             if (SUPABASE_CONFIG.url && !SUPABASE_CONFIG.url.startsWith('【')) {
                 supabase = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
             } else {
-                console.error("错误：Supabase URL / Anon Key 未配置。请在代码中填写您的项目凭据。");
+                console.error("错误：Supabase URL / Anon Key 未配置。");
             }
 
             // =================================================================
@@ -1955,7 +1974,7 @@
                 isLoadingMoreWallpapers: false,
                 currentWallpaperPage: 1,
                 userData: JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA)),
-                activeSearchScopeId: STATIC_CONFIG.CONSTANTS.DEFAULT_SCOPE_ID,
+                activeSearchPills: [], // NEW: State for search pills
             };
 
             // =================================================================
@@ -1976,7 +1995,8 @@
                 'forgot-password-link', 'forgot-password-modal', 'forgot-password-form',
                 'search-results-container', 'search-stats', 'search-results-list',
                 'custom-alert-modal', 'custom-alert-title', 'custom-alert-message',
-                'search-clock', 'search-container', 'search-form', 'search-input',
+                'search-clock', 'search-container', 'search-form', 
+                'search-input-container', 'real-search-input',
                 'search-suggestions-container', 'suggestion-tabs', 'suggestion-content', 'clear-history-btn',
                 'ai-btn', 'ai-dropdown-menu', 'theme-btn', 'theme-dropdown-menu',
                 'context-menu', 'main-context-menu',
@@ -1990,7 +2010,7 @@
                 'scope-intitle', 'scope-intext', 'scope-exact-phrase', 'scope-exclude-words',
                 'scope-time-range', 'scope-custom-date-range', 'scope-start-date', 'scope-end-date',
                 'start-date-container', 'end-date-container',
-                'search-scope-btn', 'search-scope-menu', 'active-scope-tag',
+                'search-scope-btn', 'search-scope-menu',
                 'engine-btn', 'search-engine-menu', 'manage-engines-modal', 'engine-list', 
                 'manage-engines-form-container', 'engine-form-title', 'manage-engines-form',
                 'engine-edit-id', 'engine-name', 'engine-url', 'engine-icon-url', 'engine-form-cancel'
@@ -2037,17 +2057,17 @@
                                     .eq('user_id', state.currentUser.id)
                                     .single();
 
-                                if (error && error.code !== 'PGRST116') {
+                                if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
                                     throw error;
                                 }
                                 if (data) {
                                     dataToLoad = data.data;
                                     console.log("成功从 Supabase 加载数据。");
-                                    await storage.set(dataToLoad);
+                                    await storage.set(dataToLoad); // Sync to local storage
                                 } else {
                                     console.log("Supabase 中无用户数据，使用默认数据初始化。");
                                     dataToLoad = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
-                                    await core.saveUserData(dataToLoad);
+                                    await core.saveUserData(dataToLoad); // Create the initial record in Supabase
                                 }
                             } catch (error) {
                                 console.error("从 Supabase 加载数据失败，将使用本地数据:", error);
@@ -2063,47 +2083,22 @@
                         if (!dataToLoad || typeof dataToLoad !== 'object') {
                             state.userData = defaultData;
                         } else {
-                            // [REVISED] Start with a deep copy of default data to ensure all keys exist
-                            const mergedData = JSON.parse(JSON.stringify(defaultData));
-                            
-                            // Overwrite with user's top-level, non-array settings
-                            for (const key in dataToLoad) {
-                                if (Object.prototype.hasOwnProperty.call(dataToLoad, key) && !Array.isArray(dataToLoad[key])) {
-                                    mergedData[key] = dataToLoad[key];
+                            // Deep merge user data with defaults to ensure all keys exist
+                            const mergedData = { ...defaultData };
+                            for (const key in defaultData) {
+                                if (dataToLoad[key] !== undefined) {
+                                    if (Array.isArray(defaultData[key])) {
+                                        // Ensure arrays are valid
+                                        mergedData[key] = Array.isArray(dataToLoad[key]) ? dataToLoad[key] : defaultData[key];
+                                    } else {
+                                        mergedData[key] = dataToLoad[key];
+                                    }
                                 }
                             }
-
-                            // Safely merge arrays
-                            if (Array.isArray(dataToLoad.navItems)) {
-                                mergedData.navItems = dataToLoad.navItems.filter(item => item && typeof item === 'object' && item.name && item.url).map(item => ({
-                                    ...defaultData.navItems[0], // provides a default structure
-                                    ...item
-                                }));
-                            }
-
-                            if (Array.isArray(dataToLoad.searchEngines)) {
-                                const userEngines = dataToLoad.searchEngines.filter(e => e && e.id && e.name && e.url);
-                                const finalEngines = [...userEngines];
-                                defaultData.searchEngines.forEach(defaultEngine => {
-                                    if (!finalEngines.some(userEngine => userEngine.id === defaultEngine.id)) {
-                                        finalEngines.push(defaultEngine);
-                                    }
-                                });
-                                mergedData.searchEngines = finalEngines;
-                            }
-                            
-                            mergedData.navCategories = Array.isArray(dataToLoad.navCategories) ? dataToLoad.navCategories : defaultData.navCategories;
-                            mergedData.searchHistory = Array.isArray(dataToLoad.searchHistory) ? dataToLoad.searchHistory : defaultData.searchHistory;
-                            mergedData.searchScopes = Array.isArray(dataToLoad.searchScopes) ? dataToLoad.searchScopes : defaultData.searchScopes;
-
-                            // Final check on active engine
-                            if (!mergedData.searchEngines.some(e => e.id === mergedData.activeSearchEngineId)) {
-                                mergedData.activeSearchEngineId = mergedData.searchEngines[0]?.id || defaultData.activeSearchEngineId;
-                            }
-
                             state.userData = mergedData;
                         }
                         
+                        // If no local data and not logged in, save default data to local storage
                         if (!dataToLoad && !state.isLoggedIn) {
                             await core.saveUserData();
                         }
@@ -2118,18 +2113,22 @@
                 },
 
                 saveUserData: async (dataToSave = state.userData) => {
+                    // Always save to local storage first for responsiveness
+                    await storage.set(dataToSave);
+                    console.log("数据已保存到本地存储。");
+
                     if (state.isLoggedIn && state.currentUser) {
-                        console.log("保存数据到 Supabase...");
+                        console.log("正在保存数据到 Supabase...");
                         const { error } = await supabase
                             .from('user_configs')
                             .upsert({ user_id: state.currentUser.id, data: dataToSave });
 
                         if (error) {
                             console.error("保存数据到 Supabase 失败:", error);
+                        } else {
+                            console.log("数据已成功同步到 Supabase。");
                         }
                     }
-                    console.log("保存数据到本地存储。");
-                    await storage.set(dataToSave);
                 },
 
                 applyAllSettings: () => {
@@ -2141,7 +2140,7 @@
                     core.applyTheme(state.userData.theme);
                     core.applyDockPin(state.userData.isDockPinned);
                     render.searchScopeSelector();
-                    render.activeScopeTag();
+                    render.searchPills();
                     render.searchEngineSwitcher();
                     render.watermark();
                 },
@@ -2219,36 +2218,61 @@
                 },
 
                 performSearch: (query) => {
-                    if (!query) return;
+                    if (!query && state.activeSearchPills.length === 0) return;
 
-                    state.userData.searchHistory = state.userData.searchHistory.filter(item => item !== query);
-                    state.userData.searchHistory.unshift(query);
-                    if (state.userData.searchHistory.length > 10) {
-                        state.userData.searchHistory.pop();
+                    // Save search history
+                    if (query) {
+                        state.userData.searchHistory = state.userData.searchHistory.filter(item => item !== query);
+                        state.userData.searchHistory.unshift(query);
+                        if (state.userData.searchHistory.length > 10) {
+                            state.userData.searchHistory.pop();
+                        }
+                        core.saveUserData();
                     }
-                    core.saveUserData();
 
                     let finalQuery = query;
                     
-                    if (state.activeSearchScopeId !== STATIC_CONFIG.CONSTANTS.DEFAULT_SCOPE_ID) {
-                        const scope = state.userData.searchScopes.find(s => s.id === state.activeSearchScopeId);
-                        if (scope) {
-                            if (scope.intitle) finalQuery += ` intitle:${scope.intitle}`;
-                            if (scope.intext) finalQuery += ` intext:${scope.intext}`;
-                            if (scope.exactPhrase) finalQuery += ` "${scope.exactPhrase}"`;
-                            if (scope.excludeWords) {
-                                finalQuery += ` ${scope.excludeWords.trim().split(/\s+/).map(w => `-${w}`).join(' ')}`;
-                            }
-                            if (scope.sites && scope.sites.length > 0) {
-                                finalQuery += ` ${scope.sites.map(s => `site:${s}`).join(' OR ')}`;
-                            }
-                            if (scope.filetype) finalQuery += ` filetype:${scope.filetype}`;
-                            
-                            const { startDate, endDate } = utils.getDateRange(scope.timeRange, scope.startDate, scope.endDate);
-                            if (startDate) finalQuery += ` after:${startDate}`;
-                            if (endDate) finalQuery += ` before:${endDate}`;
+                    // Build query from pills
+                    const queryParts = new Map();
+                    state.activeSearchPills.forEach(pill => {
+                        if (queryParts.has(pill.type)) {
+                            queryParts.get(pill.type).push(pill.value);
+                        } else {
+                            queryParts.set(pill.type, [pill.value]);
                         }
-                    }
+                    });
+
+                    let operatorString = '';
+                    queryParts.forEach((values, type) => {
+                        switch (type) {
+                            case 'sites':
+                                operatorString += ` ${values.map(v => `site:${v}`).join(' OR ')}`;
+                                break;
+                            case 'filetype':
+                                operatorString += ` filetype:${values[0]}`;
+                                break;
+                            case 'intitle':
+                                operatorString += ` intitle:${values[0]}`;
+                                break;
+                            case 'intext':
+                                operatorString += ` intext:${values[0]}`;
+                                break;
+                            case 'exactPhrase':
+                                operatorString += ` "${values[0]}"`;
+                                break;
+                            case 'excludeWords':
+                                operatorString += ` ${values[0].trim().split(/\s+/).map(w => `-${w}`).join(' ')}`;
+                                break;
+                            case 'timeRange':
+                                const timePill = state.activeSearchPills.find(p => p.type === 'timeRange');
+                                const { startDate, endDate } = utils.getDateRange(timePill.value, timePill.startDate, timePill.endDate);
+                                if (startDate) operatorString += ` after:${startDate}`;
+                                if (endDate) operatorString += ` before:${endDate}`;
+                                break;
+                        }
+                    });
+
+                    finalQuery += operatorString;
 
                     const engine = state.userData.searchEngines.find(e => e.id === state.userData.activeSearchEngineId);
                     if (!engine) {
@@ -2259,7 +2283,6 @@
                     const encodedQuery = encodeURIComponent(finalQuery.trim());
                     window.open(engine.url.replace(/\{query\}/gi, encodedQuery), '_blank');
                 },
-
 
                 updateClock: () => {
                     if (!dom.searchClock) return;
@@ -2843,10 +2866,8 @@
                         userBtn.setAttribute('aria-haspopup', 'true');
                         userBtn.setAttribute('aria-expanded', 'false');
 
-                        // --- [FIX START] 增加渲染的防御性 ---
                         const nickname = state.currentUser?.user_metadata?.nickname || state.currentUser?.email?.split('@')[0] || '用户';
                         const email = state.currentUser?.email || '';
-                        // --- [FIX END] ---
 
                         userBtn.innerHTML = `
                             <div class="user-avatar">
@@ -2947,15 +2968,13 @@
                     menu.innerHTML = '';
                     const fragment = document.createDocumentFragment();
 
-                    const defaultItem = document.createElement('a');
-                    defaultItem.href = '#';
-                    defaultItem.className = 'dropdown-item scope-menu-item';
-                    defaultItem.dataset.scopeId = STATIC_CONFIG.CONSTANTS.DEFAULT_SCOPE_ID;
-                    defaultItem.innerHTML = `<span class="icon">🌐</span><span>全网搜索</span>`;
-                    if (state.activeSearchScopeId === STATIC_CONFIG.CONSTANTS.DEFAULT_SCOPE_ID) {
-                        defaultItem.classList.add('active');
-                    }
-                    fragment.appendChild(defaultItem);
+                    // "Clear All" button
+                    const clearItem = document.createElement('a');
+                    clearItem.href = '#';
+                    clearItem.className = 'dropdown-item';
+                    clearItem.dataset.action = 'clear-pills';
+                    clearItem.innerHTML = `<span class="icon">🧹</span><span>清除所有范围</span>`;
+                    fragment.appendChild(clearItem);
 
                     state.userData.searchScopes.forEach(scope => {
                         const scopeItem = document.createElement('a');
@@ -2963,9 +2982,6 @@
                         scopeItem.className = 'dropdown-item scope-menu-item';
                         scopeItem.dataset.scopeId = scope.id;
                         scopeItem.innerHTML = `<span class="icon">🎯</span><span>${scope.name}</span>`;
-                        if (state.activeSearchScopeId === scope.id) {
-                            scopeItem.classList.add('active');
-                        }
                         fragment.appendChild(scopeItem);
                     });
                     
@@ -2983,26 +2999,30 @@
                     menu.appendChild(fragment);
                 },
                 
-                activeScopeTag: () => {
-                    const tag = dom.activeScopeTag;
-                    const input = dom.searchInput;
-                    if (state.activeSearchScopeId === STATIC_CONFIG.CONSTANTS.DEFAULT_SCOPE_ID) {
-                        tag.classList.remove('visible');
-                        input.classList.remove('has-scope');
-                        input.style.paddingLeft = '';
-                        tag.textContent = '';
-                    } else {
-                        const scope = state.userData.searchScopes.find(s => s.id === state.activeSearchScopeId);
-                        if (scope) {
-                            tag.textContent = scope.name;
-                            tag.classList.add('visible');
-                            input.classList.add('has-scope');
-                            setTimeout(() => {
-                                const tagWidth = tag.offsetWidth;
-                                input.style.paddingLeft = `${tagWidth + 50}px`;
-                            }, 0);
-                        }
-                    }
+                searchPills: () => {
+                    const container = dom.searchInputContainer;
+                    container.querySelectorAll('.search-pill').forEach(pill => pill.remove());
+
+                    const fragment = document.createDocumentFragment();
+                    state.activeSearchPills.forEach((pill, index) => {
+                        const pillEl = document.createElement('div');
+                        pillEl.className = 'search-pill';
+                        pillEl.dataset.index = index;
+                        
+                        const pillText = document.createElement('span');
+                        pillText.textContent = pill.label;
+                        
+                        const closeBtn = document.createElement('button');
+                        closeBtn.className = 'pill-close-btn';
+                        closeBtn.innerHTML = '&times;';
+                        closeBtn.dataset.action = 'remove-pill';
+
+                        pillEl.appendChild(pillText);
+                        pillEl.appendChild(closeBtn);
+                        fragment.appendChild(pillEl);
+                    });
+                    container.insertBefore(fragment, dom.realSearchInput);
+                    handlers.updateSearchContainerState();
                 },
 
                 manageScopesModal: () => {
@@ -3171,16 +3191,16 @@
                         }, 0);
                     }
                 },
-                closeAllDropdowns: () => {
+                closeAllDropdowns: (exceptMenu = null) => {
                     document.querySelectorAll('.dropdown-menu.visible').forEach(menu => {
-                        if (menu.id !== 'search-suggestions-container') {
+                        if (menu !== exceptMenu && menu.id !== 'search-suggestions-container') {
                            menu.classList.remove('visible');
                            const btn = menu.parentElement.querySelector('[aria-expanded="true"]');
                            if (btn) btn.setAttribute('aria-expanded', 'false');
                         }
                     });
-                    dom.contextMenu.classList.remove('visible');
-                    dom.mainContextMenu.classList.remove('visible');
+                    if (exceptMenu !== dom.contextMenu) dom.contextMenu.classList.remove('visible');
+                    if (exceptMenu !== dom.mainContextMenu) dom.mainContextMenu.classList.remove('visible');
                 },
                 populateCategoryDropdowns: (selectElement, selectedCategory = '') => {
                     selectElement.innerHTML = '';
@@ -3411,6 +3431,13 @@
                     const data = await utils.jsonp(url, 'cb');
                     return data.s;
                 },
+                
+                // NEW: Function to update search container state
+                updateSearchContainerState: () => {
+                    const hasPills = state.activeSearchPills.length > 0;
+                    const hasInput = dom.realSearchInput.value.length > 0;
+                    dom.searchContainer.classList.toggle('has-content', hasPills || hasInput);
+                },
 
                 globalClickHandler: (e) => {
                     const dropdownToggle = e.target.closest('[aria-haspopup="true"]');
@@ -3419,7 +3446,7 @@
                     const themeChoiceTarget = e.target.closest('.theme-choice');
                     const scopeMenuItem = e.target.closest('.scope-menu-item');
 
-                    if (!e.target.closest('#context-menu') && !e.target.closest('#main-context-menu')) {
+                    if (!e.target.closest('.dropdown-menu') && !dropdownToggle) {
                         utils.closeAllDropdowns();
                     }
                     
@@ -3451,11 +3478,29 @@
 
                     if (scopeMenuItem) {
                         e.preventDefault();
-                        state.activeSearchScopeId = scopeMenuItem.dataset.scopeId;
-                        render.activeScopeTag();
-                        render.searchScopeSelector();
-                        utils.closeAllDropdowns();
-                        return;
+                        const scopeId = scopeMenuItem.dataset.scopeId;
+                        const scope = state.userData.searchScopes.find(s => s.id === scopeId);
+                        if (!scope) return;
+
+                        const timeRangeLabels = { 'day': '过去24小时', 'week': '过去一周', 'month': '过去一月', 'year': '过去一年' };
+                        
+                        if (scope.sites && scope.sites.length > 0) {
+                            scope.sites.forEach(site => {
+                                utils.addPill('sites', site, `网站: ${site}`);
+                            });
+                        }
+                        if (scope.filetype) utils.addPill('filetype', scope.filetype, `文件类型: ${scope.filetype}`);
+                        if (scope.intitle) utils.addPill('intitle', scope.intitle, `标题包含: ${scope.intitle}`);
+                        if (scope.intext) utils.addPill('intext', scope.intext, `正文包含: ${scope.intext}`);
+                        if (scope.exactPhrase) utils.addPill('exactPhrase', scope.exactPhrase, `精确匹配: "${scope.exactPhrase}"`);
+                        if (scope.excludeWords) utils.addPill('excludeWords', scope.excludeWords, `排除: ${scope.excludeWords}`);
+                        if (scope.timeRange && scope.timeRange !== 'any') {
+                            let label = `时间: ${timeRangeLabels[scope.timeRange] || scope.timeRange}`;
+                            utils.addPill('timeRange', scope.timeRange, label, { startDate: scope.startDate, endDate: scope.endDate });
+                        }
+                        
+                        render.searchPills();
+                        return; // Keep menu open
                     }
 
                     if (dropdownToggle) {
@@ -3463,8 +3508,10 @@
                         const menu = dropdownToggle.parentElement.querySelector('.dropdown-menu');
                         if (menu && !dropdownToggle.disabled) {
                             const wasVisible = menu.classList.contains('visible');
-                            utils.closeAllDropdowns();
+                            utils.closeAllDropdowns(menu); 
                             if (!wasVisible) {
+                                utils.toggleDropdown(dropdownToggle, menu);
+                            } else if (menu.id !== 'search-scope-menu') {
                                 utils.toggleDropdown(dropdownToggle, menu);
                             }
                         }
@@ -3476,6 +3523,16 @@
                         const action = actionTarget.dataset.action;
                         
                         switch(action) {
+                            case 'remove-pill': {
+                                const pillIndex = parseInt(actionTarget.closest('.search-pill').dataset.index, 10);
+                                state.activeSearchPills.splice(pillIndex, 1);
+                                render.searchPills();
+                                break;
+                            }
+                            case 'clear-pills':
+                                state.activeSearchPills = [];
+                                render.searchPills();
+                                break;
                             case 'edit-site':
                             case 'delete-site':
                                 handlers.contextMenuAction(action);
@@ -3540,13 +3597,9 @@
                                 if (scope) {
                                     utils.showConfirmModal(`确定要删除搜索范围 "${scope.name}" 吗？`, () => {
                                         state.userData.searchScopes = state.userData.searchScopes.filter(s => s.id !== scopeId);
-                                        if (state.activeSearchScopeId === scopeId) {
-                                            state.activeSearchScopeId = STATIC_CONFIG.CONSTANTS.DEFAULT_SCOPE_ID;
-                                        }
                                         core.saveUserData();
                                         render.manageScopesModal();
                                         render.searchScopeSelector();
-                                        render.activeScopeTag();
                                     });
                                 }
                                 break;
@@ -3628,12 +3681,10 @@
                             }
                         }
 
-                        utils.closeAllDropdowns();
+                        if (actionTarget.closest('#search-scope-menu') === null) {
+                            utils.closeAllDropdowns();
+                        }
                         return;
-                    }
-
-                    if (!e.target.closest('.modal-content') && !e.target.closest('#wallpaper-gallery-panel') && !e.target.closest('#wallpaper-gallery-trigger')) {
-                        dom.wallpaperGalleryPanel.classList.remove('visible');
                     }
                 },
 
@@ -3666,14 +3717,14 @@
 
                         state.userData.navCategories.push(newCategory);
                         await core.saveUserData();
-                        render.dockCategories(); // Re-render the dock to show the new category
+                        render.dockCategories();
                         dom.addCategoryModal.classList.remove('visible');
                         form.reset();
                         return;
                     }
 
                     if (form.id === 'search-form') {
-                       core.performSearch(dom.searchInput.value.trim());
+                       core.performSearch(dom.realSearchInput.value.trim());
                        return;
                     }
                     
@@ -3850,7 +3901,7 @@
                 },
                 
                 showSuggestions: async () => {
-                    const query = dom.searchInput.value.trim();
+                    const query = dom.realSearchInput.value.trim();
                     const mode = state.suggestionViewMode;
                     
                     if (dom.clearHistoryBtn) {
@@ -3999,26 +4050,26 @@
                     }
                 });
                 
-                if (dom.searchInput) {
-                    dom.searchInput.addEventListener('focus', () => {
+                dom.searchInputContainer.addEventListener('click', (e) => {
+                    if (e.target.dataset.action === 'remove-pill') return;
+                    dom.realSearchInput.focus();
+                });
+
+                if (dom.realSearchInput) {
+                    dom.realSearchInput.addEventListener('focus', () => {
                         dom.searchContainer.classList.add('focused');
                         if (!dom.searchScopeMenu.classList.contains('visible')) {
                             handlers.showSuggestions();
                         }
                     });
-                    dom.searchInput.addEventListener('blur', () => dom.searchContainer.classList.remove('focused'));
-                    dom.searchInput.addEventListener('input', () => {
-                        dom.searchContainer.classList.toggle('has-input', dom.searchInput.value.length > 0);
+                    dom.realSearchInput.addEventListener('blur', () => dom.searchContainer.classList.remove('focused'));
+                    dom.realSearchInput.addEventListener('input', () => {
+                        handlers.updateSearchContainerState();
                         state.activeSuggestionIndex = -1;
                         state.suggestionViewMode = 'suggestion';
                         handlers.debouncedShowSuggestions();
                     });
-                    dom.searchInput.addEventListener('keydown', (e) => {
-                         if (e.key === 'Tab') {
-                            e.preventDefault();
-                            utils.toggleDropdown(dom.searchScopeBtn, dom.searchScopeMenu);
-                            return;
-                        }
+                    dom.realSearchInput.addEventListener('keydown', (e) => {
                         if (!dom.searchSuggestionsContainer?.classList.contains('visible')) return;
                         const items = dom.suggestionContent.querySelectorAll('.suggestion-item');
                         if (items.length === 0) return;
@@ -4031,7 +4082,7 @@
                         
                         state.activeSuggestionIndex = newIndex;
                         items.forEach((item, index) => item.classList.toggle('active', index === newIndex));
-                        if (state.activeSuggestionIndex > -1) { dom.searchInput.value = items[state.activeSuggestionIndex].dataset.value; }
+                        if (state.activeSuggestionIndex > -1) { dom.realSearchInput.value = items[state.activeSuggestionIndex].dataset.value; }
                     });
                 }
                 
@@ -4068,7 +4119,7 @@
                     const item = target.closest('.suggestion-item');
                     if (item) {
                         const value = item.dataset.value;
-                        dom.searchInput.value = value;
+                        dom.realSearchInput.value = value;
                         dom.searchSuggestionsContainer.classList.remove('visible');
                         core.performSearch(value);
                     }
@@ -4105,9 +4156,8 @@
                 });
                 dom.wallpaperGalleryTrigger.addEventListener('click', core.toggleWallpaperGallery);
                 
-                // [FIXED] Wallpaper category click logic
                 dom.wallpaperGalleryCategoriesContainer?.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent the global click handler from closing the panel
+                    e.stopPropagation();
                     const btn = e.target.closest('.wallpaper-gallery-category-btn');
                     if (btn && !btn.classList.contains('active')) {
                         state.activeWallpaperGalleryCategory = btn.dataset.category;
@@ -4175,11 +4225,12 @@
                         console.log(`Auth event: ${event}`, session);
                         
                         if (event === 'SIGNED_OUT') {
-                            await storage.set(STATIC_CONFIG.DEFAULT_USER_DATA);
+                            state.userData = JSON.parse(JSON.stringify(STATIC_CONFIG.DEFAULT_USER_DATA));
+                            await storage.set(state.userData);
                         }
 
-                        render.userActions();
                         await core.loadUserData();
+                        render.userActions();
                     });
                 } else {
                     await core.loadUserData();
@@ -4189,6 +4240,20 @@
                 setInterval(core.updateClock, 1000);
 
                 addEventListeners();
+            };
+
+            utils.addPill = (type, value, label, extraData = {}) => {
+                if (['filetype', 'intitle', 'intext', 'exactPhrase', 'excludeWords', 'timeRange'].includes(type)) {
+                    state.activeSearchPills = state.activeSearchPills.filter(p => p.type !== type);
+                }
+                
+                if (type === 'sites') {
+                    if (state.activeSearchPills.some(p => p.type === 'sites' && p.value === value)) {
+                        return;
+                    }
+                }
+
+                state.activeSearchPills.push({ type, value, label, ...extraData });
             };
 
             document.addEventListener('DOMContentLoaded', init);
