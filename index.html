@@ -316,9 +316,8 @@
             position: relative;
         }
         
-        #search-scope-btn {
+        #search-scope-btn, #translate-toggle-btn {
             position: absolute;
-            left: 6px;
             top: 50%;
             transform: translateY(-50%);
             width: 28px;
@@ -332,22 +331,33 @@
             justify-content: center;
             cursor: pointer;
             opacity: 0;
-            transition: opacity 0.2s ease, background-color 0.2s ease;
-            z-index: 2; /* Ensure it's above the pills */
+            transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+            z-index: 2;
         }
-        #search-scope-btn svg {
+        #search-scope-btn { left: 6px; }
+        #translate-toggle-btn { left: 38px; }
+
+        #search-scope-btn svg, #translate-toggle-btn svg {
             width: 16px;
             height: 16px;
             fill: currentColor;
         }
         .search-container:hover #search-scope-btn,
-        .search-container.focused #search-scope-btn {
+        .search-container:focused #search-scope-btn,
+        .search-container:hover #translate-toggle-btn,
+        .search-container:focused #translate-toggle-btn {
             opacity: 0.7;
         }
-        #search-scope-btn:hover {
+        #search-scope-btn:hover, #translate-toggle-btn:hover {
             opacity: 1;
             background-color: rgba(255,255,255,0.1);
         }
+        #translate-toggle-btn.active {
+            opacity: 1;
+            color: var(--blue);
+            background-color: rgba(138, 180, 248, 0.2);
+        }
+
 
         #search-scope-menu {
             left: 0;
@@ -360,7 +370,6 @@
             font-weight: 500;
             color: var(--blue);
         }
-        /* Style for Tab key highlighting */
         .scope-menu-item.highlighted {
             background-color: rgba(138, 180, 248, 0.8);
             color: var(--bg);
@@ -373,7 +382,7 @@
             gap: 4px;
             width: 100%;
             height: 40px;
-            padding: 0 45px 0 40px;
+            padding: 0 45px 0 72px; /* Increased left padding for two buttons */
             cursor: text;
         }
         #real-search-input {
@@ -953,6 +962,14 @@
             gap: 10px;
             align-items: center;
         }
+        .form-group.checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .form-group.checkbox-group input {
+            width: auto;
+        }
 
 
         .hidden { display: none !important; }
@@ -1496,6 +1513,12 @@
                 align-items: stretch;
                 gap: 10px;
             }
+            #search-input-container {
+                padding: 0 45px 0 40px; /* Reset padding for mobile */
+            }
+            #translate-toggle-btn {
+                display: none; /* Hide translate toggle on mobile to save space */
+            }
         }
 
         @media (max-width: 480px) {
@@ -1553,6 +1576,9 @@
                      <form id="search-form" role="search">
                          <button type="button" id="search-scope-btn" aria-haspopup="true" aria-expanded="false" title="选择搜索范围">
                              <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"></path></svg>
+                         </button>
+                         <button type="button" id="translate-toggle-btn" title="翻译搜索 (中→英)">
+                            <svg viewBox="0 0 24 24"><path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4.86 19l5.09-5.02.03.03.03.03 2.54 2.51zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"></path></svg>
                          </button>
                          <div id="search-scope-menu" class="dropdown-menu"></div>
                          
@@ -1769,6 +1795,10 @@
                                 <label for="scope-end-date">结束日期</label>
                                 <input type="date" id="scope-end-date" aria-label="结束日期">
                             </div>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="scope-translate">
+                            <label for="scope-translate">自动翻译搜索 (中→英)</label>
                         </div>
                     </form>
                 </div>
@@ -2066,11 +2096,12 @@
                 wallhavenPage: 1,
                 wallhavenFilters: {
                     query: '',
-                    categories: '100', // Default to General
-                    purity: '100' // Default to SFW
+                    categories: '100',
+                    purity: '100'
                 },
-                activeScopeIndex: -1, // For Tab navigation
-                isAwaitingTranslationConfirmation: false, // For Wallhaven translation feedback
+                activeScopeIndex: -1,
+                isAwaitingTranslationConfirmation: false,
+                isTranslateModeActive: false, // For main search quick toggle
             };
 
             // =================================================================
@@ -2105,8 +2136,8 @@
                 'scope-edit-id', 'scope-name', 'scope-sites', 'scope-filetype', 'scope-form-cancel',
                 'scope-intitle', 'scope-intext', 'scope-exact-phrase', 'scope-exclude-words',
                 'scope-time-range', 'scope-custom-date-range', 'scope-start-date', 'scope-end-date',
-                'start-date-container', 'end-date-container',
-                'search-scope-btn', 'search-scope-menu',
+                'start-date-container', 'end-date-container', 'scope-translate',
+                'search-scope-btn', 'search-scope-menu', 'translate-toggle-btn',
                 'engine-btn', 'search-engine-menu', 'manage-engines-modal', 'engine-list', 
                 'manage-engines-form-container', 'engine-form-title', 'manage-engines-form',
                 'engine-edit-id', 'engine-name', 'engine-url', 'engine-icon-url', 'engine-form-cancel',
@@ -2114,34 +2145,58 @@
                 'advanced-settings-modal', 'advanced-settings-form', 'proxy-url'
             ];
             
-            /**
-             * 将中文文本翻译成英文
-             * @param {string} text 要翻译的中文文本
-             * @returns {Promise<string>} 翻译后的英文文本
-             */
-            async function translateChineseToEnglish(text) {
-                // 使用一个免费、公开的API进行演示，其稳定性可能无法保证。
-                // 生产环境中建议使用有API密钥的专用翻译服务或自建后端。
-                const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh-CN|en-US`;
-                try {
-                    const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(apiUrl)}`);
-                    if (!response.ok) {
-                        throw new Error('翻译服务网络响应失败');
+            // =================================================================
+            // 翻译模块
+            // =================================================================
+            const translation = {
+                // 定义一个翻译API提供商列表，实现故障转移
+                apiProviders: [
+                    {
+                        name: 'MyMemory',
+                        buildUrl: (text) => `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh-CN|en-US`,
+                        parseResponse: (data) => data?.responseData?.translatedText
+                    },
+                    // 您可以在此添加更多备用API
+                    // {
+                    //     name: '备用API',
+                    //     buildUrl: (text) => `https://备用api.com/translate?text=${encodeURIComponent(text)}`,
+                    //     parseResponse: (data) => data?.translation
+                    // }
+                ],
+
+                /**
+                 * 自动尝试多个API将中文翻译成英文
+                 * @param {string} text 要翻译的中文文本
+                 * @returns {Promise<string>} 翻译后的英文文本
+                 */
+                translateChineseToEnglish: async function(text) {
+                    for (const provider of this.apiProviders) {
+                        try {
+                            const apiUrl = provider.buildUrl(text);
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(apiUrl)}`);
+                            if (!response.ok) throw new Error(`网络响应失败: ${response.status}`);
+                            
+                            const data = await response.json();
+                            const translatedText = provider.parseResponse(data);
+
+                            if (translatedText) {
+                                console.log(`由 ${provider.name} 翻译成功: "${text}" -> "${translatedText}"`);
+                                return translatedText;
+                            } else {
+                                throw new Error('无法从API响应中解析翻译结果');
+                            }
+                        } catch (error) {
+                            console.error(`使用 ${provider.name} 翻译失败:`, error);
+                            // 尝试下一个API
+                        }
                     }
-                    const data = await response.json();
-                    if (data && data.responseData && data.responseData.translatedText) {
-                        const translated = data.responseData.translatedText;
-                        console.log(`翻译成功: "${text}" -> "${translated}"`);
-                        return translated;
-                    } else {
-                        throw new Error('无法从API响应中解析翻译结果');
-                    }
-                } catch (error) {
-                    console.error("翻译失败:", error);
+
+                    // 所有API都失败后
                     utils.showAlert('自动翻译失败，将使用原文进行搜索。', '翻译提示');
-                    return text; // 翻译失败时返回原文
+                    return text;
                 }
-            }
+            };
+
 
             // =================================================================
             // 本地存储模块
@@ -2219,6 +2274,14 @@
                                         mergedData[key] = dataToLoad[key];
                                     }
                                 }
+                            }
+                            // 确保旧数据结构有 translate 字段
+                            if (mergedData.searchScopes) {
+                                mergedData.searchScopes.forEach(scope => {
+                                    if (scope.translate === undefined) {
+                                        scope.translate = false;
+                                    }
+                                });
                             }
                             state.userData = mergedData;
                         }
@@ -2338,6 +2401,25 @@
                         utils.showAlert("如果该邮箱已注册，一封重设密码的邮件将会发送到您的收件箱，请注意查收。");
                         dom.forgotPasswordModal.classList.remove('visible');
                     }
+                },
+                
+                initiateSearch: async () => {
+                    let query = dom.realSearchInput.value.trim();
+                    if (!query && state.activeSearchPills.length === 0) return;
+
+                    // 检查是否需要翻译
+                    const scopePillNeedsTranslation = state.activeSearchPills.some(pill => {
+                        const scope = state.userData.searchScopes.find(s => s.id === pill.scopeId);
+                        return scope && scope.translate;
+                    });
+                    
+                    const needsTranslation = (state.isTranslateModeActive || scopePillNeedsTranslation) && /[\u4e00-\u9fa5]/.test(query);
+
+                    if (needsTranslation) {
+                        query = await translation.translateChineseToEnglish(query);
+                    }
+                    
+                    core.performSearch(query);
                 },
 
                 performSearch: (query) => {
@@ -3750,6 +3832,7 @@
                                     dom.scopeTimeRange.dispatchEvent(new Event('change'));
                                     dom.scopeStartDate.value = scope.startDate || '';
                                     dom.scopeEndDate.value = scope.endDate || '';
+                                    dom.scopeTranslate.checked = scope.translate || false;
                                     dom.scopeFormCancel.classList.remove('hidden');
                                 }
                                 break;
@@ -3938,13 +4021,14 @@
                         const timeRange = dom.scopeTimeRange.value;
                         const startDate = dom.scopeStartDate.value;
                         const endDate = dom.scopeEndDate.value;
+                        const translate = dom.scopeTranslate.checked;
 
                         if (!name) {
                             utils.showAlert('范围名称不能为空！');
                             return;
                         }
 
-                        const scopeData = { name, sites, filetype, intitle, intext, exactPhrase, excludeWords, timeRange, startDate, endDate };
+                        const scopeData = { name, sites, filetype, intitle, intext, exactPhrase, excludeWords, timeRange, startDate, endDate, translate };
 
                         if (id) {
                             const scopeIndex = state.userData.searchScopes.findIndex(s => s.id === id);
@@ -4230,11 +4314,14 @@
                     dom.realSearchInput.focus();
                 });
 
-                dom.searchSubmitBtn.addEventListener('click', () => {
-                    core.performSearch(dom.realSearchInput.value.trim());
+                dom.searchSubmitBtn.addEventListener('click', core.initiateSearch);
+                
+                dom.translateToggleBtn.addEventListener('click', () => {
+                    state.isTranslateModeActive = !state.isTranslateModeActive;
+                    dom.translateToggleBtn.classList.toggle('active', state.isTranslateModeActive);
                 });
 
-                dom.realSearchInput.addEventListener('keydown', (e) => {
+                dom.realSearchInput.addEventListener('keydown', async (e) => {
                     const suggestionsVisible = dom.searchSuggestionsContainer?.classList.contains('visible');
                     const scopeMenuVisible = dom.searchScopeMenu?.classList.contains('visible');
 
@@ -4262,7 +4349,6 @@
                             state.activeScopeIndex = -1;
                             dom.searchScopeMenu.querySelectorAll('.scope-menu-item').forEach(item => item.classList.remove('highlighted'));
                         }
-                        // Fall through to potentially close suggestion box as well
                     }
 
                     if (e.key === 'Enter') {
@@ -4272,11 +4358,10 @@
                             const highlightedItem = dom.searchScopeMenu.querySelectorAll('.scope-menu-item')[state.activeScopeIndex];
                             if (highlightedItem) {
                                 const scopeId = highlightedItem.dataset.scopeId;
-                                // Check if a pill from this scope already exists
                                 if (state.activeSearchPills.some(p => p.scopeId === scopeId)) {
-                                    core.performSearch(dom.realSearchInput.value.trim());
+                                    await core.initiateSearch();
                                 } else {
-                                    highlightedItem.click(); // Simulate a click to add the pill(s)
+                                    highlightedItem.click();
                                 }
                                 utils.closeAllDropdowns();
                                 state.activeScopeIndex = -1;
@@ -4290,7 +4375,7 @@
                                 items[state.activeSuggestionIndex].click();
                             }
                         } else {
-                            core.performSearch(dom.realSearchInput.value.trim());
+                            await core.initiateSearch();
                         }
                         return;
                     }
@@ -4344,7 +4429,7 @@
                     });
                 });
 
-                dom.suggestionContent?.addEventListener('click', (e) => {
+                dom.suggestionContent?.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const target = e.target;
 
@@ -4360,7 +4445,7 @@
                         const value = item.dataset.value;
                         dom.realSearchInput.value = value;
                         dom.searchSuggestionsContainer.classList.remove('visible');
-                        core.performSearch(value);
+                        await core.initiateSearch();
                     }
                 });
                 
@@ -4438,21 +4523,19 @@
                 dom.wallhavenApplyFilterBtn.addEventListener('click', async () => {
                     const originalQuery = dom.wallhavenSearchInput.value.trim();
                     
-                    // 如果输入包含中文且尚未确认翻译
                     if (/[\u4e00-\u9fa5]/.test(originalQuery) && !state.isAwaitingTranslationConfirmation) {
                         dom.wallhavenApplyFilterBtn.textContent = '翻译中...';
                         dom.wallhavenApplyFilterBtn.disabled = true;
                         
-                        const translatedQuery = await translateChineseToEnglish(originalQuery);
+                        const translatedQuery = await translation.translateChineseToEnglish(originalQuery);
                         
                         dom.wallhavenSearchInput.value = translatedQuery;
                         dom.wallhavenApplyFilterBtn.textContent = '确认搜索';
                         dom.wallhavenApplyFilterBtn.disabled = false;
                         state.isAwaitingTranslationConfirmation = true;
-                        return; // 等待用户第二次点击
+                        return;
                     }
 
-                    // 继续搜索（非中文查询，或翻译后第二次点击）
                     const currentQuery = dom.wallhavenSearchInput.value.trim();
                     
                     const getBinaryString = (selector) => {
@@ -4477,12 +4560,10 @@
 
                     render.wallpaperGallery(true);
                     
-                    // 搜索后重置确认状态
                     state.isAwaitingTranslationConfirmation = false;
                     dom.wallhavenApplyFilterBtn.textContent = '应用滤镜';
                 });
                 
-                // 如果用户在翻译后编辑输入框，则重置状态
                 dom.wallhavenSearchInput.addEventListener('input', () => {
                     if (state.isAwaitingTranslationConfirmation) {
                         state.isAwaitingTranslationConfirmation = false;
