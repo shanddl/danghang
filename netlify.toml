@@ -1,0 +1,25 @@
+# Netlify 建置設定檔
+# 這個檔案告訴 Netlify 如何建置與部署您的網站。
+
+[build]
+  # 關鍵設定：將基礎目錄設定為您專案檔案所在的子文件夾。
+  # 這會讓 Netlify 在這個文件夾內尋找要發布的網站內容和雲函數。
+  base = "your-project-folder"
+
+  # 網站的建置指令 (對於靜態 HTML 檔案，此處不需要實際的建置指令)。
+  command = "echo 'No build command needed'"
+
+  # 要發布的目錄 (相對於上面設定的 base 目錄)。
+  # "." 表示基礎目錄本身。
+  publish = "."
+
+  # Netlify 雲函數所在的目錄 (相對於上面設定的 base 目錄)。
+  functions = "netlify/functions"
+
+# 代理重定向規則
+# 這條規則會將所有對 /api/* 的請求轉發到您的 proxy 函數。
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/proxy?url=:splat"
+  status = 200 # 狀態碼 200 表示這是一個「重寫」(rewrite)，也就是代理，而不是一個「重定向」(redirect)。
+
