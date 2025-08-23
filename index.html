@@ -360,6 +360,11 @@
             font-weight: 500;
             color: var(--blue);
         }
+        /* Style for Tab key highlighting */
+        .scope-menu-item.highlighted {
+            background-color: rgba(138, 180, 248, 0.8);
+            color: var(--bg);
+        }
 
         #search-input-container {
             display: flex;
@@ -1357,12 +1362,15 @@
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
-            transition: opacity 0.2s ease;
+            transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease;
         }
         #wallhaven-apply-filter-btn:hover {
             opacity: 0.85;
         }
-
+        #wallhaven-apply-filter-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
 
         .wallpaper-gallery-category-btn {
             border: none;
@@ -1552,7 +1560,6 @@
                             <input id="real-search-input" placeholder=" " autocomplete="off">
                          </div>
 
-                         <!-- BUG FIX: Changed type from "submit" to "button" -->
                          <button type="button" id="search-submit-btn" class="search-btn" aria-label="搜索">
                              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>
                          </button>
@@ -1919,7 +1926,7 @@
             <div id="wallpaper-gallery-categories-container"></div>
             <!-- Wallhaven Filter Bar HTML -->
             <div id="wallhaven-filter-bar" class="hidden">
-                <input type="text" id="wallhaven-search-input" placeholder="输入关键词 (例如: landscape)">
+                <input type="text" id="wallhaven-search-input" placeholder="输入中文关键词可自动翻译">
                 <div class="filter-group">
                     <span>分类:</span>
                     <label><input type="checkbox" class="wallhaven-category-cb" value="100" checked> 综合</label>
@@ -2062,6 +2069,8 @@
                     categories: '100', // Default to General
                     purity: '100' // Default to SFW
                 },
+                activeScopeIndex: -1, // For Tab navigation
+                isAwaitingTranslationConfirmation: false, // For Wallhaven translation feedback
             };
 
             // =================================================================
@@ -2104,6 +2113,35 @@
                 'wallhaven-filter-bar', 'wallhaven-search-input', 'wallhaven-apply-filter-btn',
                 'advanced-settings-modal', 'advanced-settings-form', 'proxy-url'
             ];
+            
+            /**
+             * 将中文文本翻译成英文
+             * @param {string} text 要翻译的中文文本
+             * @returns {Promise<string>} 翻译后的英文文本
+             */
+            async function translateChineseToEnglish(text) {
+                // 使用一个免费、公开的API进行演示，其稳定性可能无法保证。
+                // 生产环境中建议使用有API密钥的专用翻译服务或自建后端。
+                const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh-CN|en-US`;
+                try {
+                    const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(apiUrl)}`);
+                    if (!response.ok) {
+                        throw new Error('翻译服务网络响应失败');
+                    }
+                    const data = await response.json();
+                    if (data && data.responseData && data.responseData.translatedText) {
+                        const translated = data.responseData.translatedText;
+                        console.log(`翻译成功: "${text}" -> "${translated}"`);
+                        return translated;
+                    } else {
+                        throw new Error('无法从API响应中解析翻译结果');
+                    }
+                } catch (error) {
+                    console.error("翻译失败:", error);
+                    utils.showAlert('自动翻译失败，将使用原文进行搜索。', '翻译提示');
+                    return text; // 翻译失败时返回原文
+                }
+            }
 
             // =================================================================
             // 本地存储模块
@@ -3607,17 +3645,17 @@
                         
                         if (scope.sites && scope.sites.length > 0) {
                             scope.sites.forEach(site => {
-                                utils.addPill('sites', site, `网站: ${site}`);
+                                utils.addPill('sites', site, `网站: ${site}`, { scopeId: scope.id });
                             });
                         }
-                        if (scope.filetype) utils.addPill('filetype', scope.filetype, `文件类型: ${scope.filetype}`);
-                        if (scope.intitle) utils.addPill('intitle', scope.intitle, `标题包含: ${scope.intitle}`);
-                        if (scope.intext) utils.addPill('intext', scope.intext, `正文包含: ${scope.intext}`);
-                        if (scope.exactPhrase) utils.addPill('exactPhrase', scope.exactPhrase, `精确匹配: "${scope.exactPhrase}"`);
-                        if (scope.excludeWords) utils.addPill('excludeWords', scope.excludeWords, `排除: ${scope.excludeWords}`);
+                        if (scope.filetype) utils.addPill('filetype', scope.filetype, `文件类型: ${scope.filetype}`, { scopeId: scope.id });
+                        if (scope.intitle) utils.addPill('intitle', scope.intitle, `标题包含: ${scope.intitle}`, { scopeId: scope.id });
+                        if (scope.intext) utils.addPill('intext', scope.intext, `正文包含: ${scope.intext}`, { scopeId: scope.id });
+                        if (scope.exactPhrase) utils.addPill('exactPhrase', scope.exactPhrase, `精确匹配: "${scope.exactPhrase}"`, { scopeId: scope.id });
+                        if (scope.excludeWords) utils.addPill('excludeWords', scope.excludeWords, `排除: ${scope.excludeWords}`, { scopeId: scope.id });
                         if (scope.timeRange && scope.timeRange !== 'any') {
                             let label = `时间: ${timeRangeLabels[scope.timeRange] || scope.timeRange}`;
-                            utils.addPill('timeRange', scope.timeRange, label, { startDate: scope.startDate, endDate: scope.endDate });
+                            utils.addPill('timeRange', scope.timeRange, label, { startDate: scope.startDate, endDate: scope.endDate, scopeId: scope.id });
                         }
                         
                         render.searchPills();
@@ -4192,17 +4230,60 @@
                     dom.realSearchInput.focus();
                 });
 
-                // BUG FIX: Add click listener to the new search button
                 dom.searchSubmitBtn.addEventListener('click', () => {
                     core.performSearch(dom.realSearchInput.value.trim());
                 });
 
-                // BUG FIX: Refactored keydown listener
                 dom.realSearchInput.addEventListener('keydown', (e) => {
                     const suggestionsVisible = dom.searchSuggestionsContainer?.classList.contains('visible');
-                    
+                    const scopeMenuVisible = dom.searchScopeMenu?.classList.contains('visible');
+
+                    if (e.key === 'Tab') {
+                        e.preventDefault();
+                        if (!scopeMenuVisible) {
+                            utils.toggleDropdown(dom.searchScopeBtn, dom.searchScopeMenu);
+                        }
+                        const scopeItems = dom.searchScopeMenu.querySelectorAll('.scope-menu-item');
+                        if (scopeItems.length > 0) {
+                            if (state.activeScopeIndex > -1) {
+                                scopeItems[state.activeScopeIndex].classList.remove('highlighted');
+                            }
+                            state.activeScopeIndex = (state.activeScopeIndex + 1) % scopeItems.length;
+                            const currentItem = scopeItems[state.activeScopeIndex];
+                            currentItem.classList.add('highlighted');
+                            currentItem.scrollIntoView({ block: 'nearest' });
+                        }
+                        return;
+                    }
+
+                    if (e.key === 'Escape') {
+                        if (scopeMenuVisible) {
+                            utils.closeAllDropdowns();
+                            state.activeScopeIndex = -1;
+                            dom.searchScopeMenu.querySelectorAll('.scope-menu-item').forEach(item => item.classList.remove('highlighted'));
+                        }
+                        // Fall through to potentially close suggestion box as well
+                    }
+
                     if (e.key === 'Enter') {
-                        e.preventDefault(); // Always prevent default form submission on Enter
+                        e.preventDefault();
+
+                        if (scopeMenuVisible && state.activeScopeIndex > -1) {
+                            const highlightedItem = dom.searchScopeMenu.querySelectorAll('.scope-menu-item')[state.activeScopeIndex];
+                            if (highlightedItem) {
+                                const scopeId = highlightedItem.dataset.scopeId;
+                                // Check if a pill from this scope already exists
+                                if (state.activeSearchPills.some(p => p.scopeId === scopeId)) {
+                                    core.performSearch(dom.realSearchInput.value.trim());
+                                } else {
+                                    highlightedItem.click(); // Simulate a click to add the pill(s)
+                                }
+                                utils.closeAllDropdowns();
+                                state.activeScopeIndex = -1;
+                            }
+                            return;
+                        }
+                        
                         if (suggestionsVisible && state.activeSuggestionIndex > -1) {
                             const items = dom.suggestionContent.querySelectorAll('.suggestion-item');
                             if (items[state.activeSuggestionIndex]) {
@@ -4214,20 +4295,21 @@
                         return;
                     }
 
-                    if (suggestionsVisible) {
+                    if (suggestionsVisible && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
                         const items = dom.suggestionContent.querySelectorAll('.suggestion-item');
                         if (items.length === 0) return;
                         
+                        e.preventDefault();
                         let newIndex = state.activeSuggestionIndex;
-                        if (e.key === 'ArrowDown') { e.preventDefault(); newIndex = (state.activeSuggestionIndex + 1) % items.length; }
-                        else if (e.key === 'ArrowUp') { e.preventDefault(); newIndex = (state.activeSuggestionIndex - 1 + items.length) % items.length; }
-                        else { return; }
+                        if (e.key === 'ArrowDown') { newIndex = (state.activeSuggestionIndex + 1) % items.length; }
+                        else if (e.key === 'ArrowUp') { newIndex = (state.activeSuggestionIndex - 1 + items.length) % items.length; }
                         
                         state.activeSuggestionIndex = newIndex;
                         items.forEach((item, index) => item.classList.toggle('active', index === newIndex));
                         if (state.activeSuggestionIndex > -1) { dom.realSearchInput.value = items[state.activeSuggestionIndex].dataset.value; }
                     }
                 });
+
 
                 dom.realSearchInput.addEventListener('focus', () => {
                     dom.searchContainer.classList.add('focused');
@@ -4353,12 +4435,29 @@
                     }
                 });
 
-                dom.wallhavenApplyFilterBtn.addEventListener('click', () => {
-                    const query = dom.wallhavenSearchInput.value.trim();
+                dom.wallhavenApplyFilterBtn.addEventListener('click', async () => {
+                    const originalQuery = dom.wallhavenSearchInput.value.trim();
+                    
+                    // 如果输入包含中文且尚未确认翻译
+                    if (/[\u4e00-\u9fa5]/.test(originalQuery) && !state.isAwaitingTranslationConfirmation) {
+                        dom.wallhavenApplyFilterBtn.textContent = '翻译中...';
+                        dom.wallhavenApplyFilterBtn.disabled = true;
+                        
+                        const translatedQuery = await translateChineseToEnglish(originalQuery);
+                        
+                        dom.wallhavenSearchInput.value = translatedQuery;
+                        dom.wallhavenApplyFilterBtn.textContent = '确认搜索';
+                        dom.wallhavenApplyFilterBtn.disabled = false;
+                        state.isAwaitingTranslationConfirmation = true;
+                        return; // 等待用户第二次点击
+                    }
+
+                    // 继续搜索（非中文查询，或翻译后第二次点击）
+                    const currentQuery = dom.wallhavenSearchInput.value.trim();
                     
                     const getBinaryString = (selector) => {
                         const cbs = document.querySelectorAll(selector);
-                        let binary = [0,0,0];
+                        let binary = [0, 0, 0];
                         cbs.forEach(cb => {
                             if (cb.checked) {
                                 if (cb.value === '100') binary[0] = 1;
@@ -4372,11 +4471,23 @@
                     const categories = getBinaryString('.wallhaven-category-cb');
                     const purity = getBinaryString('.wallhaven-purity-cb');
                     
-                    state.wallhavenFilters.query = query;
+                    state.wallhavenFilters.query = currentQuery;
                     state.wallhavenFilters.categories = categories;
                     state.wallhavenFilters.purity = purity;
 
                     render.wallpaperGallery(true);
+                    
+                    // 搜索后重置确认状态
+                    state.isAwaitingTranslationConfirmation = false;
+                    dom.wallhavenApplyFilterBtn.textContent = '应用滤镜';
+                });
+                
+                // 如果用户在翻译后编辑输入框，则重置状态
+                dom.wallhavenSearchInput.addEventListener('input', () => {
+                    if (state.isAwaitingTranslationConfirmation) {
+                        state.isAwaitingTranslationConfirmation = false;
+                        dom.wallhavenApplyFilterBtn.textContent = '应用滤镜';
+                    }
                 });
             }
             
