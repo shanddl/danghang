@@ -11,18 +11,12 @@ exports.handler = async function(event, context) {
   }
 
   // --- 步驟 2: 如果查詢參數中沒有，則從請求路徑中解析 URL (強化方法) ---
-  // 這是為了解決 Netlify 重寫規則未傳遞 :splat 參數的問題
   if (!targetUrl && event.path) {
     const path = event.path;
-    // 檢查路徑是否以 /api/ 開頭
     if (path.startsWith('/api/')) {
-      // 截取 /api/ 後面的所有內容作為目標 URL
       targetUrl = path.substring(5);
     }
   }
-
-  // 記錄最終解析出的 URL，方便偵錯
-  console.log(`[Proxy Log] 收到請求，解析後的目標 URL: ${targetUrl}`);
 
   // --- 步驟 3: 驗證目標 URL 是否存在 ---
   if (!targetUrl) {
@@ -33,6 +27,22 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ error: '請求的 URL 參數為空或格式錯誤' }),
     };
   }
+
+  // --- ★★★ 關鍵修正 ★★★ ---
+  // 將可能被編碼的 URL 解碼，還原成標準的網址格式
+  try {
+    targetUrl = decodeURIComponent(targetUrl);
+  } catch (e) {
+    console.error('[Proxy Error] URL 解碼失敗:', e);
+    return {
+      statusCode: 400,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ error: '無效的 URL 編碼' }),
+    };
+  }
+  
+  // 記錄最終解析出的 URL，方便偵錯
+  console.log(`[Proxy Log] 收到請求，解碼後的目標 URL: ${targetUrl}`);
 
   try {
     // --- 步驟 4: 在伺服器端發起請求 ---
