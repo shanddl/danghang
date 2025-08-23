@@ -1,0 +1,8 @@
+[build]
+  command = "echo 'No build command needed'"
+  publish = "."
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/proxy?url=:splat"
+  status = 200
