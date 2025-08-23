@@ -1,8 +1,17 @@
+# This is the configuration file for Netlify.
+# It tells Netlify how to build your site and handle redirects for the proxy.
+
 [build]
+  # We don't have a build step for this simple HTML file, so we just echo a message.
   command = "echo 'No build command needed'"
+  # The root of our site is the current directory.
   publish = "."
 
+# This section sets up our serverless function as a proxy.
 [[redirects]]
+  # Any request to /api/... on our site...
   from = "/api/*"
+  # ...will be redirected to our proxy function. The :splat contains the original URL.
   to = "/.netlify/functions/proxy?url=:splat"
+  # Status 200 means this is not a traditional redirect, but a rewrite.
   status = 200
