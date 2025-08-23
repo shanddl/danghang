@@ -343,9 +343,9 @@
             fill: currentColor;
         }
         .search-container:hover #search-scope-btn,
-        .search-container:focused #search-scope-btn,
+        .search-container.focused #search-scope-btn,
         .search-container:hover #translate-toggle-btn,
-        .search-container:focused #translate-toggle-btn {
+        .search-container.focused #translate-toggle-btn {
             opacity: 0.7;
         }
         #search-scope-btn:hover, #translate-toggle-btn:hover {
@@ -890,7 +890,7 @@
             font-size: 13px;
         }
         
-        #manage-scopes-modal .modal-content, #manage-engines-modal .modal-content, #advanced-settings-modal .modal-content {
+        #manage-scopes-modal .modal-content, #manage-engines-modal .modal-content {
             max-width: 550px;
             max-height: 80vh;
         }
@@ -1319,21 +1319,31 @@
         #wallpaper-gallery-panel.visible {
             transform: translateY(0);
         }
-        #wallpaper-gallery-categories-container {
+        #wallpaper-gallery-header {
             position: sticky;
             top: 0;
-            padding: 80px 20px 15px;
             background: rgba(29, 30, 32, 0.85);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             z-index: 52;
+            padding-top: 80px;
+        }
+        #wallpaper-gallery-categories-container, #wallpaper-gallery-subcategories-container {
             display: flex;
             gap: 12px;
             overflow-x: auto;
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
-        #wallpaper-gallery-categories-container::-webkit-scrollbar {
+        #wallpaper-gallery-categories-container {
+            padding: 0 20px 15px;
+        }
+        #wallpaper-gallery-subcategories-container {
+            padding: 0 20px 15px;
+            border-top: 1px solid var(--border-color);
+        }
+        #wallpaper-gallery-categories-container::-webkit-scrollbar,
+        #wallpaper-gallery-subcategories-container::-webkit-scrollbar {
             display: none;
         }
 
@@ -1505,8 +1515,13 @@
                 gap: 10px;
                 padding: 20px 10px 20px;
             }
-            #wallpaper-gallery-categories-container {
-                padding: 70px 10px 15px;
+            #wallpaper-gallery-header {
+                padding-top: 70px;
+            }
+            #wallpaper-gallery-categories-container,
+            #wallpaper-gallery-subcategories-container {
+                padding-left: 10px;
+                padding-right: 10px;
             }
             #wallhaven-filter-bar {
                 flex-direction: column;
@@ -1896,25 +1911,6 @@
         </div>
     </div>
     
-    <div id="advanced-settings-modal" class="modal-overlay" role="dialog" aria-modal="true">
-        <div class="modal-content">
-            <h3>高级设置</h3>
-            <form id="advanced-settings-form">
-                <div class="form-group">
-                    <label for="proxy-url">反向代理地址</label>
-                    <input type="text" id="proxy-url" placeholder="例如: https://corsproxy.io/?">
-                    <small style="color: var(--text-secondary); font-size: 12px; margin-top: 5px; display: block;">
-                        用于解决部分地区无法访问壁纸源的问题。请填写完整的代理 URL，并确保它以 '?' 或 '=' 结尾。
-                    </small>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="modal-btn cancel" data-action="close-modal">取消</button>
-                    <button type="submit" class="modal-btn save">保存</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <input type="file" id="import-file-input" class="hidden" accept=".json">
 
     <div id="size-slider-panel">
@@ -1945,7 +1941,6 @@
         <div class="context-menu-item" data-action="add-category">添加分类</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item" data-action="toggle-customize-panel">自定义布局</div>
-        <div class="context-menu-item" data-action="advanced-settings">高级设置</div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item" data-action="refresh-page">刷新</div>
     </div>
@@ -1953,8 +1948,11 @@
     <div id="wallpaper-container">
         <div id="wallpaper-gallery-trigger"></div>
         <div id="wallpaper-gallery-panel">
-            <div id="wallpaper-gallery-categories-container"></div>
-            <!-- Wallhaven Filter Bar HTML -->
+            <div id="wallpaper-gallery-header">
+                <div id="wallpaper-gallery-categories-container"></div>
+                <div id="wallpaper-gallery-subcategories-container" class="hidden"></div>
+            </div>
+            
             <div id="wallhaven-filter-bar" class="hidden">
                 <input type="text" id="wallhaven-search-input" placeholder="输入中文关键词可自动翻译">
                 <div class="filter-group">
@@ -2052,6 +2050,7 @@
                 },
                 THEMES: ['aurora', 'sunset', 'ocean', 'neon', 'forest', 'cosmic'],
                 WALLPAPER_SOURCES: {
+                    '360': { name: '360壁纸', type: '360_api' },
                     'bing': { name: '必应每日', type: 'bing_api' },
                     'wallhaven': { name: 'Wallhaven', type: 'wallhaven_api', apiKey: 'ReuBMSu675eHEPELUWIgamtFH3eK5Ram' }
                 },
@@ -2059,7 +2058,7 @@
                     ALL_CATEGORIES: '全部',
                     NEW_CATEGORY_VALUE: '--new--',
                     STORAGE_KEY: '灵动窗用户数据',
-                    WALLPAPERS_PER_PAGE: 24, 
+                    WALLPAPERS_PER_PAGE: 30, 
                     DEFAULT_SCOPE_ID: 'default-web-search'
                 }
             };
@@ -2079,8 +2078,9 @@
                 draggedItem: null,
                 contextMenuItem: null,
                 isTheaterMode: false,
-                currentWallpaperCategory: 'bing',
-                activeWallpaperGalleryCategory: 'all',
+                currentWallpaperCategory: '360', // Default to 360
+                activeWallpaperGalleryCategory: '360',
+                activeWallpaperSubCategory: null,
                 currentWallpaperIndex: 0,
                 wallpaperCache: {}, 
                 nextWallpaper: new Image(),
@@ -2101,7 +2101,7 @@
                 },
                 activeScopeIndex: -1,
                 isAwaitingTranslationConfirmation: false,
-                isTranslateModeActive: false, // For main search quick toggle
+                isTranslateModeActive: false,
             };
 
             // =================================================================
@@ -2130,45 +2130,32 @@
                 'wallpaper-container', 'wallpaper-controls', 'prev-wallpaper-btn',
                 'play-pause-wallpaper-btn', 'next-wallpaper-btn', 'play-icon', 'pause-icon',
                 'download-wallpaper-btn', 'wallpaper-info', 'toggle-watermark-btn',
-                'wallpaper-gallery-trigger', 'wallpaper-gallery-panel', 'wallpaper-gallery-grid', 'wallpaper-gallery-categories-container',
+                'wallpaper-gallery-trigger', 'wallpaper-gallery-panel', 'wallpaper-gallery-grid', 
+                'wallpaper-gallery-header', 'wallpaper-gallery-categories-container', 'wallpaper-gallery-subcategories-container',
                 'gallery-loader',
                 'manage-scopes-modal', 'manage-scopes-form', 'scope-list', 'scope-form-title',
                 'scope-edit-id', 'scope-name', 'scope-sites', 'scope-filetype', 'scope-form-cancel',
                 'scope-intitle', 'scope-intext', 'scope-exact-phrase', 'scope-exclude-words',
-                'scope-time-range', 'scope-custom-date-range', 'scope-start-date', 'scope-end-date',
-                'start-date-container', 'end-date-container', 'scope-translate',
+                'scope-time-range', 'scope-custom-date-range', 'scope-start-date', 'scope-end-date', 'scope-translate',
                 'search-scope-btn', 'search-scope-menu', 'translate-toggle-btn',
                 'engine-btn', 'search-engine-menu', 'manage-engines-modal', 'engine-list', 
                 'manage-engines-form-container', 'engine-form-title', 'manage-engines-form',
                 'engine-edit-id', 'engine-name', 'engine-url', 'engine-icon-url', 'engine-form-cancel',
                 'wallhaven-filter-bar', 'wallhaven-search-input', 'wallhaven-apply-filter-btn',
-                'advanced-settings-modal', 'advanced-settings-form', 'proxy-url'
             ];
             
             // =================================================================
             // 翻译模块
             // =================================================================
             const translation = {
-                // 定义一个翻译API提供商列表，实现故障转移
                 apiProviders: [
                     {
                         name: 'MyMemory',
                         buildUrl: (text) => `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=zh-CN|en-US`,
                         parseResponse: (data) => data?.responseData?.translatedText
                     },
-                    // 您可以在此添加更多备用API
-                    // {
-                    //     name: '备用API',
-                    //     buildUrl: (text) => `https://备用api.com/translate?text=${encodeURIComponent(text)}`,
-                    //     parseResponse: (data) => data?.translation
-                    // }
                 ],
 
-                /**
-                 * 自动尝试多个API将中文翻译成英文
-                 * @param {string} text 要翻译的中文文本
-                 * @returns {Promise<string>} 翻译后的英文文本
-                 */
                 translateChineseToEnglish: async function(text) {
                     for (const provider of this.apiProviders) {
                         try {
@@ -2179,19 +2166,17 @@
                             const data = await response.json();
                             const translatedText = provider.parseResponse(data);
 
-                            if (translatedText) {
+                            if (translatedText && translatedText.toLowerCase() !== 'i do not know') {
                                 console.log(`由 ${provider.name} 翻译成功: "${text}" -> "${translatedText}"`);
                                 return translatedText;
                             } else {
-                                throw new Error('无法从API响应中解析翻译结果');
+                                throw new Error('无效的翻译结果');
                             }
                         } catch (error) {
                             console.error(`使用 ${provider.name} 翻译失败:`, error);
-                            // 尝试下一个API
                         }
                     }
 
-                    // 所有API都失败后
                     utils.showAlert('自动翻译失败，将使用原文进行搜索。', '翻译提示');
                     return text;
                 }
@@ -2204,9 +2189,7 @@
             const storage = {
                 get: async function() {
                     const localData = localStorage.getItem(STATIC_CONFIG.CONSTANTS.STORAGE_KEY);
-                    if (!localData) {
-                        return null;
-                    }
+                    if (!localData) return null;
                     try {
                         return JSON.parse(localData);
                     } catch (e) {
@@ -2239,9 +2222,7 @@
                                     .eq('user_id', state.currentUser.id)
                                     .single();
 
-                                if (error && error.code !== 'PGRST116') {
-                                    throw error;
-                                }
+                                if (error && error.code !== 'PGRST116') throw error;
                                 if (data) {
                                     dataToLoad = data.data;
                                     console.log("成功从 Supabase 加载数据。");
@@ -2275,12 +2256,9 @@
                                     }
                                 }
                             }
-                            // 确保旧数据结构有 translate 字段
                             if (mergedData.searchScopes) {
                                 mergedData.searchScopes.forEach(scope => {
-                                    if (scope.translate === undefined) {
-                                        scope.translate = false;
-                                    }
+                                    if (scope.translate === undefined) scope.translate = false;
                                 });
                             }
                             state.userData = mergedData;
@@ -2309,11 +2287,8 @@
                             .from('user_configs')
                             .upsert({ user_id: state.currentUser.id, data: dataToSave });
 
-                        if (error) {
-                            console.error("保存数据到 Supabase 失败:", error);
-                        } else {
-                            console.log("数据已成功同步到 Supabase。");
-                        }
+                        if (error) console.error("保存数据到 Supabase 失败:", error);
+                        else console.log("数据已成功同步到 Supabase。");
                     }
                 },
 
@@ -2343,11 +2318,7 @@
                     const { data, error } = await supabase.auth.signUp({
                         email,
                         password,
-                        options: {
-                            data: {
-                                nickname: nickname
-                            }
-                        }
+                        options: { data: { nickname } }
                     });
 
                     dom.authSubmitBtn.disabled = false;
@@ -2373,11 +2344,8 @@
                     dom.authSubmitBtn.disabled = false;
                     render.authModal();
 
-                    if (error) {
-                        utils.showAlert(utils.translateSupabaseError(error), '登录失败');
-                    } else {
-                         dom.authModal.classList.remove('visible');
-                    }
+                    if (error) utils.showAlert(utils.translateSupabaseError(error), '登录失败');
+                    else dom.authModal.classList.remove('visible');
                 },
 
                 logout: async () => {
@@ -2395,9 +2363,8 @@
                         redirectTo: window.location.href,
                     });
 
-                    if (error) {
-                        utils.showAlert(`操作失败: ${utils.translateSupabaseError(error)}`, '操作失败');
-                    } else {
+                    if (error) utils.showAlert(`操作失败: ${utils.translateSupabaseError(error)}`, '操作失败');
+                    else {
                         utils.showAlert("如果该邮箱已注册，一封重设密码的邮件将会发送到您的收件箱，请注意查收。");
                         dom.forgotPasswordModal.classList.remove('visible');
                     }
@@ -2407,7 +2374,6 @@
                     let query = dom.realSearchInput.value.trim();
                     if (!query && state.activeSearchPills.length === 0) return;
 
-                    // 检查是否需要翻译
                     const scopePillNeedsTranslation = state.activeSearchPills.some(pill => {
                         const scope = state.userData.searchScopes.find(s => s.id === pill.scopeId);
                         return scope && scope.translate;
@@ -2428,21 +2394,15 @@
                     if (query) {
                         state.userData.searchHistory = state.userData.searchHistory.filter(item => item !== query);
                         state.userData.searchHistory.unshift(query);
-                        if (state.userData.searchHistory.length > 10) {
-                            state.userData.searchHistory.pop();
-                        }
+                        if (state.userData.searchHistory.length > 10) state.userData.searchHistory.pop();
                         core.saveUserData();
                     }
 
                     let finalQuery = query;
-                    
                     const queryParts = new Map();
                     state.activeSearchPills.forEach(pill => {
-                        if (queryParts.has(pill.type)) {
-                            queryParts.get(pill.type).push(pill.value);
-                        } else {
-                            queryParts.set(pill.type, [pill.value]);
-                        }
+                        if (queryParts.has(pill.type)) queryParts.get(pill.type).push(pill.value);
+                        else queryParts.set(pill.type, [pill.value]);
                     });
 
                     let operatorString = '';
@@ -2510,11 +2470,8 @@
                         clearInterval(state.themeInterval);
                         state.themeInterval = null;
                     }
-                    if (theme === 'auto') {
-                        core.startThemeRotation();
-                    } else {
-                        dom.body.dataset.theme = theme;
-                    }
+                    if (theme === 'auto') core.startThemeRotation();
+                    else dom.body.dataset.theme = theme;
                 },
 
                 applyShape: (shape) => {
@@ -2547,16 +2504,15 @@
                     URL.revokeObjectURL(url);
                 },
 
-                importData: () => {
-                    dom.importFileInput.click();
-                },
+                importData: () => dom.importFileInput.click(),
                 
-                fetchAndSetWallpaper: async (index) => {
+                fetchAndSetWallpaper: async (index, categoryOverride) => {
                     if (state.isWallpaperLoading) return;
                     state.isWallpaperLoading = true;
 
                     try {
-                        const imageData = await core.getWallpaperData(index);
+                        const category = categoryOverride || state.currentWallpaperCategory;
+                        const imageData = await core.getWallpaperData(index, category);
                         if (!imageData) throw new Error("无法获取壁纸数据");
 
                         state.nextWallpaper.src = imageData.url;
@@ -2595,21 +2551,32 @@
                     }
                 },
                 
-                getWallpaperData: async (index, categoryOverride) => {
-                    const category = categoryOverride || state.currentWallpaperCategory;
+                getWallpaperData: async (index, category) => {
                     const source = STATIC_CONFIG.WALLPAPER_SOURCES[category];
                     if (!source) return null;
                     const cacheKey = `${category}-${index}`;
 
                     try {
+                        if (source.type === '360_api') {
+                            if (state.wallpaperCache[cacheKey]) return state.wallpaperCache[cacheKey];
+                            const url = `http://wallpaper.apc.360.cn/index.php?c=WallPaper&a=getAppsByCategory&cid=${state.activeWallpaperSubCategory || 10}&start=${Math.floor(Math.random() * 100)}&count=1`;
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
+                            const data = await response.json();
+                            if(data.data && data.data.length > 0){
+                                const image = data.data[0];
+                                const imageUrl = image.url.replace('http://', 'https://');
+                                const imageData = { url: imageUrl, info: image.utag || '来自360壁纸', category: category, index: image.id };
+                                state.wallpaperCache[cacheKey] = imageData;
+                                return imageData;
+                            }
+                            return null;
+                        }
                         if (source.type === 'bing_api') {
                             if (state.wallpaperCache[cacheKey]) return state.wallpaperCache[cacheKey];
                             const url = `https://www.bing.com/HPImageArchive.aspx?format=js&idx=${index}&n=1&mkt=zh-CN`;
                             const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
                             if (!response.ok) throw new Error(`Bing API fetch failed: ${response.status}`);
-                            const text = await response.text();
-                            if (!text) return null;
-                            const bingData = JSON.parse(text);
+                            const bingData = await response.json();
                             const imageUrl = `https://www.bing.com${bingData.images[0].url}`;
                             const imageData = { url: imageUrl, info: bingData.images[0].copyright, category: category, index: index };
                             state.wallpaperCache[cacheKey] = imageData;
@@ -2645,7 +2612,7 @@
                     if (state.isTheaterMode) return;
                     
                     try {
-                        await core.fetchAndSetWallpaper(state.currentWallpaperIndex);
+                        await core.fetchAndSetWallpaper(state.currentWallpaperIndex, '360');
                         dom.body.classList.add('theater-mode-active');
                         dom.wallpaperContainer.classList.add('visible');
                         state.isTheaterMode = true;
@@ -2683,11 +2650,8 @@
                 },
                 
                 toggleSlideshow: () => {
-                    if (state.isSlideshowPlaying) {
-                        core.stopSlideshow();
-                    } else {
-                        core.startSlideshow();
-                    }
+                    if (state.isSlideshowPlaying) core.stopSlideshow();
+                    else core.startSlideshow();
                 },
 
                 startSlideshow: () => {
@@ -2741,7 +2705,7 @@
                         panel.classList.remove('visible');
                     } else {
                         state.currentWallpaperPage = 1;
-                        state.wallhavenPage = 1; // 重置 Wallhaven 页码
+                        state.wallhavenPage = 1;
                         state.isLoadingMoreWallpapers = false;
                         panel.classList.add('visible');
                         render.wallpaperGallery(true);
@@ -2936,7 +2900,6 @@
                     const fragment = document.createDocumentFragment();
                     
                     const categories = { 
-                        'all': '全部', 
                         ...Object.fromEntries(Object.entries(STATIC_CONFIG.WALLPAPER_SOURCES).map(([key, value]) => [key, value.name])) 
                     };
 
@@ -2953,11 +2916,42 @@
                     
                     container.innerHTML = '';
                     container.appendChild(fragment);
+                    render.wallpaperGallerySubCategories();
+                },
 
-                    // Show/hide filter bar
+                wallpaperGallerySubCategories: async () => {
+                    const subContainer = dom.wallpaperGallerySubcategoriesContainer;
                     const filterBar = dom.wallhavenFilterBar;
-                    if (filterBar) {
-                        filterBar.classList.toggle('hidden', state.activeWallpaperGalleryCategory !== 'wallhaven');
+                    subContainer.innerHTML = '';
+                    subContainer.classList.add('hidden');
+                    filterBar.classList.add('hidden');
+
+                    if (state.activeWallpaperGalleryCategory === '360') {
+                        subContainer.classList.remove('hidden');
+                        try {
+                            const url = 'http://wallpaper.apc.360.cn/index.php?c=WallPaperAndroid&a=getAllCategories';
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
+                            const data = await response.json();
+                            if (data.data) {
+                                const fragment = document.createDocumentFragment();
+                                data.data.forEach(cat => {
+                                    const btn = document.createElement('button');
+                                    btn.className = 'wallpaper-gallery-category-btn';
+                                    btn.dataset.subcategoryId = cat.id;
+                                    btn.textContent = cat.name;
+                                    if (cat.id === state.activeWallpaperSubCategory) {
+                                        btn.classList.add('active');
+                                    }
+                                    fragment.appendChild(btn);
+                                });
+                                subContainer.appendChild(fragment);
+                            }
+                        } catch (e) {
+                            console.error("获取360分类失败", e);
+                            subContainer.innerHTML = '<p style="color: var(--text-secondary); font-size: 13px;">分类加载失败</p>';
+                        }
+                    } else if (state.activeWallpaperGalleryCategory === 'wallhaven') {
+                        filterBar.classList.remove('hidden');
                     }
                 },
 
@@ -2984,15 +2978,30 @@
                     
                     let imagesToRender = [];
 
-                    if (activeCategory === 'wallhaven') {
-                        const source = STATIC_CONFIG.WALLPAPER_SOURCES.wallhaven;
-                        const filters = state.wallhavenFilters;
-                        let url = `https://wallhaven.cc/api/v1/search?apikey=${source.apiKey}&page=${state.wallhavenPage}`;
-                        if (filters.query) url += `&q=${encodeURIComponent(filters.query)}`;
-                        if (filters.categories !== '000') url += `&categories=${filters.categories}`;
-                        if (filters.purity !== '000') url += `&purity=${filters.purity}`;
-                        
-                        try {
+                    try {
+                        if (activeCategory === '360') {
+                            const subCatId = state.activeWallpaperSubCategory || 10; // Default to a popular category if none selected
+                            const start = (state.currentWallpaperPage - 1) * STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE;
+                            const url = `http://wallpaper.apc.360.cn/index.php?c=WallPaperAndroid&a=getAppsByCategory&cid=${subCatId}&start=${start}&count=${STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE}`;
+                            const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
+                            const data = await response.json();
+                            if (data.data && data.data.length > 0) {
+                                imagesToRender = data.data.map(img => ({
+                                    url: img.url.replace('http://', 'https://'),
+                                    fullUrl: img.url.replace('http://', 'https://'),
+                                    info: img.utag || '360壁纸',
+                                    category: '360',
+                                    index: img.id
+                                }));
+                            }
+                        } else if (activeCategory === 'wallhaven') {
+                            const source = STATIC_CONFIG.WALLPAPER_SOURCES.wallhaven;
+                            const filters = state.wallhavenFilters;
+                            let url = `https://wallhaven.cc/api/v1/search?apikey=${source.apiKey}&page=${state.wallhavenPage}`;
+                            if (filters.query) url += `&q=${encodeURIComponent(filters.query)}`;
+                            if (filters.categories !== '000') url += `&categories=${filters.categories}`;
+                            if (filters.purity !== '000') url += `&purity=${filters.purity}`;
+                            
                             const response = await fetch(`${state.userData.proxyUrl}${encodeURIComponent(url)}`);
                             const data = await response.json();
                             if (data.data && data.data.length > 0) {
@@ -3003,42 +3012,28 @@
                                     category: 'wallhaven',
                                     index: img.id
                                 }));
-                            } else if (state.wallhavenPage > 1) {
-                                dom.galleryLoader.textContent = '没有更多壁纸了';
-                                state.isLoadingMoreWallpapers = true; // Prevent further loading
-                                return;
                             }
-                        } catch (e) {
-                            console.error("Failed to fetch from Wallhaven:", e);
-                            dom.galleryLoader.textContent = '加载 Wallhaven 壁纸失败';
-                            state.isLoadingMoreWallpapers = false;
-                            return;
+                        } else if (activeCategory === 'bing') {
+                           const startIdx = (state.currentWallpaperPage - 1) * 8;
+                           const promises = [];
+                           for(let i=0; i<8; i++){
+                               promises.push(core.getWallpaperData(startIdx + i, 'bing'));
+                           }
+                           imagesToRender = (await Promise.all(promises)).filter(Boolean);
                         }
-                    } else {
-                         let sourcesToFetch = [];
-                        if (activeCategory === 'all') {
-                            for (let i = 0; i < 4; i++) { sourcesToFetch.push({ type: 'bing_api', index: i }); }
-                            Object.entries(STATIC_CONFIG.WALLPAPER_SOURCES).forEach(([key, source]) => {
-                                if (source.type !== 'bing_api' && source.type !== 'wallhaven_api') {
-                                    for (let i = 0; i < 4; i++) {
-                                        sourcesToFetch.push({ type: source.type, category: key, index: Math.random(), url: source.url, info: source.name });
-                                    }
-                                }
-                            });
-                        } else {
-                            const source = STATIC_CONFIG.WALLPAPER_SOURCES[activeCategory];
-                            const perPage = source.type === 'bing_api' ? 8 : STATIC_CONFIG.CONSTANTS.WALLPAPERS_PER_PAGE;
-                            for (let i = 0; i < perPage; i++) {
-                                const uniqueIndex = (state.currentWallpaperPage - 1) * perPage + i;
-                                sourcesToFetch.push({ type: source.type, category: activeCategory, index: uniqueIndex, url: source.url, info: source.name });
-                            }
-                        }
-                        const promises = sourcesToFetch.map(source => core.getWallpaperData(source.index, source.category || activeCategory));
-                        imagesToRender = (await Promise.all(promises)).filter(Boolean);
+                    } catch (e) {
+                         console.error(`加载 ${activeCategory} 壁纸失败:`, e);
+                         dom.galleryLoader.textContent = `加载 ${STATIC_CONFIG.WALLPAPER_SOURCES[activeCategory].name} 壁纸失败`;
+                         state.isLoadingMoreWallpapers = false;
+                         return;
                     }
                     
-                    if (imagesToRender.length === 0 && (state.currentWallpaperPage === 1 || state.wallhavenPage === 1)) {
+                    if (imagesToRender.length === 0 && state.currentWallpaperPage === 1 && state.wallhavenPage === 1) {
                         dom.galleryLoader.textContent = '没有找到符合条件的壁纸';
+                        state.isLoadingMoreWallpapers = true; // Prevent further loading
+                        return;
+                    } else if (imagesToRender.length === 0) {
+                        dom.galleryLoader.textContent = '没有更多壁纸了';
                         state.isLoadingMoreWallpapers = true; // Prevent further loading
                         return;
                     }
@@ -3799,10 +3794,6 @@
                             case 'toggle-customize-panel':
                                 dom.sizeSliderPanel.classList.toggle('visible');
                                 break;
-                            case 'advanced-settings':
-                                dom.proxyUrl.value = state.userData.proxyUrl || '';
-                                dom.advancedSettingsModal.classList.add('visible');
-                                break;
                             case 'show-auth':
                                 state.isRegisterMode = false;
                                 render.authModal();
@@ -3989,19 +3980,6 @@
                     if (form.id === 'forgot-password-form') {
                         const email = document.getElementById('forgot-email-input').value;
                         await core.handlePasswordReset(email);
-                        return;
-                    }
-
-                    if (form.id === 'advanced-settings-form') {
-                        const newProxyUrl = dom.proxyUrl.value.trim();
-                        if (newProxyUrl) {
-                            state.userData.proxyUrl = newProxyUrl;
-                            await core.saveUserData();
-                            utils.showAlert('代理地址已更新！');
-                            dom.advancedSettingsModal.classList.remove('visible');
-                        } else {
-                            utils.showAlert('代理地址不能为空。');
-                        }
                         return;
                     }
                     
@@ -4487,7 +4465,20 @@
                         state.activeWallpaperGalleryCategory = btn.dataset.category;
                         state.currentWallpaperPage = 1;
                         state.wallhavenPage = 1;
+                        state.activeWallpaperSubCategory = null;
                         render.wallpaperGalleryCategories();
+                        render.wallpaperGallery(true);
+                    }
+                });
+                
+                dom.wallpaperGallerySubcategoriesContainer?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const btn = e.target.closest('.wallpaper-gallery-category-btn');
+                     if (btn && !btn.classList.contains('active')) {
+                        const activeBtn = dom.wallpaperGallerySubcategoriesContainer.querySelector('.active');
+                        if(activeBtn) activeBtn.classList.remove('active');
+                        btn.classList.add('active');
+                        state.activeWallpaperSubCategory = btn.dataset.subcategoryId;
                         render.wallpaperGallery(true);
                     }
                 });
@@ -4496,7 +4487,7 @@
                     const item = e.target.closest('.wallpaper-gallery-item');
                     if (item) {
                         const { category, index, url } = item.dataset;
-                        core.setWallpaperFromGallery(category, parseInt(index, 10), url);
+                        core.setWallpaperFromGallery(category, index, url);
                     }
                 });
 
